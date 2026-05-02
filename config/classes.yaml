@@ -1,0 +1,363 @@
+path: ../data/datasets
+train: images/train
+val: images/val
+test: images/test
+names:
+- mode.PaKey
+- mode.DhiKeyChrom
+- mode.GhaKey
+- mode.VouKey
+- mode.KeKey
+- mode.PaKeyMinore
+- mode.PaKeyHijaz
+- mode.ZoKeyDown
+- mode.NiKey
+- mode.PaKeyFrios
+- mode.KeyAjamZo
+- modifier_modulation.ModulationDiatonicNi
+- modifier_modulation.ModulationDiatonicZo
+- modifier_modulation.ModulationDiatonicKe
+- modifier_modulation.ModulationDiatonicDhi
+- modifier_modulation.ModulationDiatonicGha
+- modifier_modulation.ModulationDiatonicVou
+- modifier_modulation.ModulationDiatonicPa
+- modifier_modulation.ModulationDiatonicNiHigh
+- modifier_modulation.ModulationEnharmonicZo
+- modifier_modulation.ModulationEnharmonicKe
+- modifier_modulation.ModulationEnharmonicDhi
+- modifier_modulation.ModulationEnharmonicPaKe
+- modifier_modulation.ModulationEnharmonicGha
+- modifier_modulation.ModulationChromaticHardDhiCross
+- modifier_modulation.ModulationChromaticHardDhi
+- modifier_modulation.ModulationChromaticHardKePa
+- modifier_modulation.ModulationChromaticSoftDhi
+- modifier_modulation.ModulationChromaticSoftGha
+- base_neume.Isson2
+- base_neume.Oligon
+- base_neume.Plus2
+- base_neume.Plus3
+- base_neume.Plus4
+- base_neume.Plus5
+- base_neume.Plus6
+- base_neume.Plus7
+- base_neume.Plus8
+- base_neume.Kendimata
+- base_neume.Petasti
+- base_neume.OnePlusOneUp
+- base_neume.OnePlusOneDn
+- base_neume.Apostrofos
+- base_neume.Elafron
+- base_neume.Minus3
+- base_neume.Minus4
+- base_neume.Minus5
+- base_neume.Minus6
+- base_neume.Minus7
+- base_neume.Minus8
+- base_neume.Iporoi
+- base_neume.Stavros
+- rest.Siopi1
+- modifier_gorgon.Klasma
+- modifier_gorgon.Gorgon
+- modifier_gorgon.GorgonApliRight
+- modifier_gorgon.GorgonApliLeft
+- modifier_gorgon.DiGorgon
+- modifier_gorgon.DiGorgonApliRight
+- modifier_gorgon.DiGorgonApliLeft
+- modifier_gorgon.TriGorgon
+- modifier_gorgon.Argon
+- modifier_gorgon.Diargon
+- modifier_gorgon.Apli
+- modifier_gorgon.Dipli
+- modifier_gorgon.Tripli
+- modifier_gorgon.Ifesis
+- modifier_gorgon.Diesis
+- modifier_gorgon.HalfDiesis
+- modifier_isson.Pa
+- modifier_isson.Vou
+- modifier_isson.Gha
+- modifier_isson.Dhi
+- modifier_isson.Ke
+- modifier_isson.Zo
+- modifier_isson.Ni
+- modifier_isson.Melo
+- key_signature.DhiKey(Down)
+- key_signature.DhiKeyChromDoux
+- key_signature.DhiKeyZygos
+- key_signature.DhiKeyChromDure(Down)
+- key_signature.DhiKeyChrom
+- key_signature.DhiKeyDiatonic(Down)
+- key_signature.DhiKeyDiatonic
+- key_signature.GhaKey(Down)
+- key_signature.GhaKey
+- key_signature.GhaKey8em
+- key_signature.GhaKeyChromDoux
+- key_signature.GhaKeyChromDouxTetr
+- key_signature.GhaKeyChromDure
+- key_signature.KeKey(Down)
+- key_signature.KeKey
+- key_signature.KeKey8em
+- key_signature.KeKeyChromDoux
+- key_signature.KeKeyChromDouxTetr
+- key_signature.KeKeyChromDouxTetrWithFthora
+- key_signature.KeKeyChromDure(Down)
+- key_signature.KeKeyChromDure
+- key_signature.NiKey
+- key_signature.NiKeyChromDoux
+- key_signature.NiKeyChromDouxSup
+- key_signature.NiKeyChromDure(Sup)
+- key_signature.NiKeyMinore
+- key_signature.NiKeyOctave
+- key_signature.PaKey
+- key_signature.PaKeyChromDoux
+- key_signature.PaKeyChromDouxTetr
+- key_signature.PaKeyChromDure
+- key_signature.PaKeyChromDureSup
+- key_signature.PaKeyFrios
+- key_signature.PaKeyFriosSup
+- key_signature.PaKeyMinore
+- key_signature.PaKeyOctave
+- key_signature.VouKey
+- key_signature.VouKeyAjam
+- key_signature.VouKeyChromDoux
+- key_signature.VouKeyZygos
+- key_signature.VouKeyChromDure
+- key_signature.VouKeyMinore
+- key_signature.ZoKeyDown
+- key_signature.KeyAjamZo
+- key_signature.ZoKeyAjamOctave
+- key_signature.ZoKeyChromDouxOctave
+- key_signature.ZoKeyChromDure(Sup)
+- key_signature.ZoKeyDiatOctave
+groups:
+  mode:
+  - mode.PaKey
+  - mode.DhiKeyChrom
+  - mode.GhaKey
+  - mode.VouKey
+  - mode.KeKey
+  - mode.PaKeyMinore
+  - mode.PaKeyHijaz
+  - mode.ZoKeyDown
+  - mode.NiKey
+  - mode.PaKeyFrios
+  - mode.KeyAjamZo
+  modulation:
+  - modifier_modulation.ModulationDiatonicNi
+  - modifier_modulation.ModulationDiatonicZo
+  - modifier_modulation.ModulationDiatonicKe
+  - modifier_modulation.ModulationDiatonicDhi
+  - modifier_modulation.ModulationDiatonicGha
+  - modifier_modulation.ModulationDiatonicVou
+  - modifier_modulation.ModulationDiatonicPa
+  - modifier_modulation.ModulationDiatonicNiHigh
+  - modifier_modulation.ModulationEnharmonicZo
+  - modifier_modulation.ModulationEnharmonicKe
+  - modifier_modulation.ModulationEnharmonicDhi
+  - modifier_modulation.ModulationEnharmonicPaKe
+  - modifier_modulation.ModulationEnharmonicGha
+  - modifier_modulation.ModulationChromaticHardDhiCross
+  - modifier_modulation.ModulationChromaticHardDhi
+  - modifier_modulation.ModulationChromaticHardKePa
+  - modifier_modulation.ModulationChromaticSoftDhi
+  - modifier_modulation.ModulationChromaticSoftGha
+  neume:
+  - base_neume.Isson2
+  - base_neume.Oligon
+  - base_neume.Plus2
+  - base_neume.Plus3
+  - base_neume.Plus4
+  - base_neume.Plus5
+  - base_neume.Plus6
+  - base_neume.Plus7
+  - base_neume.Plus8
+  - base_neume.Kendimata
+  - base_neume.Petasti
+  - base_neume.OnePlusOneUp
+  - base_neume.OnePlusOneDn
+  - base_neume.Apostrofos
+  - base_neume.Elafron
+  - base_neume.Minus3
+  - base_neume.Minus4
+  - base_neume.Minus5
+  - base_neume.Minus6
+  - base_neume.Minus7
+  - base_neume.Minus8
+  - base_neume.Iporoi
+  - base_neume.Stavros
+  rest:
+  - rest.Siopi1
+  gorgon:
+  - modifier_gorgon.Klasma
+  - modifier_gorgon.Gorgon
+  - modifier_gorgon.GorgonApliRight
+  - modifier_gorgon.GorgonApliLeft
+  - modifier_gorgon.DiGorgon
+  - modifier_gorgon.DiGorgonApliRight
+  - modifier_gorgon.DiGorgonApliLeft
+  - modifier_gorgon.TriGorgon
+  - modifier_gorgon.Argon
+  - modifier_gorgon.Diargon
+  - modifier_gorgon.Apli
+  - modifier_gorgon.Dipli
+  - modifier_gorgon.Tripli
+  - modifier_gorgon.Ifesis
+  - modifier_gorgon.Diesis
+  - modifier_gorgon.HalfDiesis
+  isson:
+  - modifier_isson.Pa
+  - modifier_isson.Vou
+  - modifier_isson.Gha
+  - modifier_isson.Dhi
+  - modifier_isson.Ke
+  - modifier_isson.Zo
+  - modifier_isson.Ni
+  - modifier_isson.Melo
+  key_signature:
+  - key_signature.DhiKey(Down)
+  - key_signature.DhiKeyChromDoux
+  - key_signature.DhiKeyZygos
+  - key_signature.DhiKeyChromDure(Down)
+  - key_signature.DhiKeyChrom
+  - key_signature.DhiKeyDiatonic(Down)
+  - key_signature.DhiKeyDiatonic
+  - key_signature.GhaKey(Down)
+  - key_signature.GhaKey
+  - key_signature.GhaKey8em
+  - key_signature.GhaKeyChromDoux
+  - key_signature.GhaKeyChromDouxTetr
+  - key_signature.GhaKeyChromDure
+  - key_signature.KeKey(Down)
+  - key_signature.KeKey
+  - key_signature.KeKey8em
+  - key_signature.KeKeyChromDoux
+  - key_signature.KeKeyChromDouxTetr
+  - key_signature.KeKeyChromDouxTetrWithFthora
+  - key_signature.KeKeyChromDure(Down)
+  - key_signature.KeKeyChromDure
+  - key_signature.NiKey
+  - key_signature.NiKeyChromDoux
+  - key_signature.NiKeyChromDouxSup
+  - key_signature.NiKeyChromDure(Sup)
+  - key_signature.NiKeyMinore
+  - key_signature.NiKeyOctave
+  - key_signature.PaKey
+  - key_signature.PaKeyChromDoux
+  - key_signature.PaKeyChromDouxTetr
+  - key_signature.PaKeyChromDure
+  - key_signature.PaKeyChromDureSup
+  - key_signature.PaKeyFrios
+  - key_signature.PaKeyFriosSup
+  - key_signature.PaKeyMinore
+  - key_signature.PaKeyOctave
+  - key_signature.VouKey
+  - key_signature.VouKeyAjam
+  - key_signature.VouKeyChromDoux
+  - key_signature.VouKeyZygos
+  - key_signature.VouKeyChromDure
+  - key_signature.VouKeyMinore
+  - key_signature.ZoKeyDown
+  - key_signature.KeyAjamZo
+  - key_signature.ZoKeyAjamOctave
+  - key_signature.ZoKeyChromDouxOctave
+  - key_signature.ZoKeyChromDure(Sup)
+  - key_signature.ZoKeyDiatOctave
+source_meta:
+  generatedBy: tools/_extract_symbol_map.ts
+  praxisRoot: /Users/nadcost/psaltica-praxis
+  toolbarCounts:
+    modesToolbar: 11
+    modulationToolbar: 18
+    neumeToolbar: 24
+    gorgonToolbar: 16
+    issonToolbar: 8
+  keySignatureCount: 48
+  actionCharMapCount: 83
+  actionIcons:
+  - Apli
+  - Apostrofos
+  - Argon
+  - Dhi
+  - DhiKeyChrom
+  - DhiKeyDiatonic
+  - DhiKeyZygos
+  - DiGorgon
+  - DiGorgonApliLeft
+  - DiGorgonApliRight
+  - Diargon
+  - Diesis
+  - Dipli
+  - Elafron
+  - Gha
+  - GhaKey
+  - GhaKey8em
+  - Gorgon
+  - GorgonApliLeft
+  - GorgonApliRight
+  - HalfDiesis
+  - Ifesis
+  - Iporoi
+  - Isson2
+  - Ke
+  - KeKey
+  - KeKeyChromDouxTetrWithFthora
+  - Kendimata
+  - KeyAjamZo
+  - Klasma
+  - Melo
+  - Minus3
+  - Minus4
+  - Minus5
+  - Minus6
+  - Minus7
+  - Minus8
+  - ModulationChromaticHardDhi
+  - ModulationChromaticHardDhiCross
+  - ModulationChromaticHardKePa
+  - ModulationChromaticSoftDhi
+  - ModulationChromaticSoftGha
+  - ModulationDiatonicDhi
+  - ModulationDiatonicGha
+  - ModulationDiatonicKe
+  - ModulationDiatonicNi
+  - ModulationDiatonicNiHigh
+  - ModulationDiatonicPa
+  - ModulationDiatonicVou
+  - ModulationDiatonicZo
+  - ModulationEnharmonicDhi
+  - ModulationEnharmonicGha
+  - ModulationEnharmonicKe
+  - ModulationEnharmonicPaKe
+  - ModulationEnharmonicZo
+  - Ni
+  - NiKey
+  - Oligon
+  - OnePlusOneDn
+  - OnePlusOneUp
+  - Pa
+  - PaKey
+  - PaKeyFrios
+  - PaKeyHijaz
+  - PaKeyMinore
+  - Petasti
+  - Plus2
+  - Plus3
+  - Plus4
+  - Plus5
+  - Plus6
+  - Plus7
+  - Plus8
+  - Siopi1
+  - Siopi2
+  - Stavros
+  - TriGorgon
+  - Tripli
+  - Vou
+  - VouKey
+  - VouKeyZygos
+  - Zo
+  - ZoKeyDown
+  reactSequenceCount: 123
+  legacySequenceCount: 105
+  allSequenceCount: 180
+  orphanActionIcons:
+  - Siopi2
