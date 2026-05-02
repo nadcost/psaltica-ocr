@@ -1,0 +1,46 @@
+from pathlib import Path
+
+import numpy as np
+
+from psaltica_ocr.rendering import apply_mask, binarize, mask_lyrics, page_output_path
+
+
+def test_page_output_path_is_deterministic() -> None:
+    assert page_output_path(Path("data/pages"), "book", 12) == Path("data/pages/book/page_0012.png")
+
+
+def test_binarize_returns_ink_as_white_binary() -> None:
+    image = np.full((20, 20), 255, dtype=np.uint8)
+    image[5:15, 5:15] = 0
+
+    binary = binarize(image)
+
+    assert set(np.unique(binary)) <= {0, 255}
+    assert binary[10, 10] == 255
+    assert binary[0, 0] == 0
+
+
+def test_mask_lyrics_keeps_tall_chant_rows_and_drops_short_text_rows() -> None:
+    image = np.full((120, 160), 255, dtype=np.uint8)
+    image[10:34, 20:140] = 0
+    image[46:54, 25:130] = 0
+    image[72:98, 20:140] = 0
+    image[108:114, 25:130] = 0
+
+    mask = mask_lyrics(image)
+
+    chant_coverage = np.mean(mask[12:32, :] == 255)
+    text_coverage = np.mean(mask[47:53, :] == 255)
+    assert chant_coverage > 0.9
+    assert text_coverage < 0.2
+
+
+def test_apply_mask_paints_non_chant_rows_white() -> None:
+    image = np.zeros((10, 10, 3), dtype=np.uint8)
+    mask = np.zeros((10, 10), dtype=np.uint8)
+    mask[2:5, :] = 255
+
+    masked = apply_mask(image, mask)
+
+    assert np.all(masked[0, 0] == 255)
+    assert np.all(masked[3, 0] == 0)
