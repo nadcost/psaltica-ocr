@@ -53,6 +53,7 @@ type SymbolEntry = {
   isModifier: boolean;
   isKeySignature: boolean;
   keyId: number | null;
+  keySignatureRole: string | null;
   category: string | null;
   basePitch: number | null;
   length: BaseCharInfo["length"] | null;
@@ -139,6 +140,7 @@ const makeToolbarEntry = (
     isModifier: role === "modifier",
     isKeySignature: role === "key_signature",
     keyId: null,
+    keySignatureRole: group === "mode" ? "segmentStart" : null,
     category: null,
     basePitch: null,
     length: baseInfo?.length ?? null,
@@ -165,6 +167,7 @@ const makeKeySignatureEntry = (
     isModifier: false,
     isKeySignature: true,
     keyId: keySignature.keyId,
+    keySignatureRole: keySignature.role,
     category: keySignature.category,
     basePitch: keySignature.basePitch,
     length: null,

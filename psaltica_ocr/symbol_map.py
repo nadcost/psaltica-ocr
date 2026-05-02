@@ -48,6 +48,7 @@ class SymbolEntry(BaseModel):
     is_modifier: bool = Field(alias="isModifier")
     is_key_signature: bool = Field(alias="isKeySignature")
     key_id: int | None = Field(alias="keyId")
+    key_signature_role: str | None = Field(alias="keySignatureRole")
     category: str | None
     base_pitch: int | None = Field(alias="basePitch")
     length: BaseLength | None
