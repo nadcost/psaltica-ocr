@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from tools.export_annotation_tasks import task_rows
+from tools.export_annotation_tasks import local_file_url, task_rows
 from tools.export_label_studio_config import label_xml
 from tools.import_labels import convert_export, load_class_names
 
@@ -77,7 +77,7 @@ def test_annotation_task_rows_include_page_metadata() -> None:
         }
     ]
 
-    assert task_rows(rows, limit=50, skip_blank=False) == [
+    assert task_rows(rows, limit=50, skip_blank=False, local_files_root=None) == [
         {
             "data": {
                 "image": "data/pages/book/page_0001.png",
@@ -87,3 +87,24 @@ def test_annotation_task_rows_include_page_metadata() -> None:
             }
         }
     ]
+
+
+def test_annotation_task_rows_can_emit_label_studio_local_file_urls() -> None:
+    rows = [
+        {
+            "image_path": "data/pages/book with spaces/page_0001.png",
+            "book_id": "book",
+            "page_number": "1",
+            "direction": "ltr",
+        }
+    ]
+
+    tasks = task_rows(rows, limit=50, skip_blank=False, local_files_root=Path(".").resolve())
+
+    assert tasks[0]["data"]["image"] == "/data/local-files/?d=data/pages/book%20with%20spaces/page_0001.png"
+
+
+def test_local_file_url_encodes_unicode_and_spaces() -> None:
+    assert local_file_url("data/pages/Θεία Λειτουργία/page_0001.png", root=Path(".").resolve()) == (
+        "/data/local-files/?d=data/pages/%CE%98%CE%B5%CE%B9%CC%81%CE%B1%20%CE%9B%CE%B5%CE%B9%CF%84%CE%BF%CF%85%CF%81%CE%B3%CE%B9%CC%81%CE%B1/page_0001.png"
+    )
