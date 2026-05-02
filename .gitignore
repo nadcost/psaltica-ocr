@@ -18,9 +18,9 @@ build/
 # Project data and model outputs
 data/
 !data/
-data/*
-!data/*/
-!data/*/.gitkeep
+data/**
+!data/**/
+!data/**/.gitkeep
 models/runs/
 !models/
 !models/runs/

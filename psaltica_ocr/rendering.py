@@ -14,6 +14,9 @@ from PIL import Image
 
 from psaltica_ocr.reading_order import DirectionMap, DirectionOption, detect_page_direction, resolve_direction
 
+# Poppler can emit very large trusted local page images at 300-400 dpi.
+Image.MAX_IMAGE_PIXELS = None
+
 
 @dataclass(frozen=True)
 class RenderedPage:
@@ -191,27 +194,20 @@ def dewarp(image: np.ndarray) -> np.ndarray:
 def mask_lyrics(image: np.ndarray, *, min_band_height: int = 4) -> np.ndarray:
     """Return a row mask where probable chant rows are 255 and lyrics rows are 0.
 
-    The v0 heuristic uses horizontal ink projection. Taller and denser bands are
-    treated as chant rows; short, sparse bands are treated as lyrics text.
+    The v0 heuristic finds long, low horizontal components that are common in
+    printed Byzantine neumes. Rows without these components, including prose-only
+    or lyrics-only rows, are masked out before annotation/training.
     """
 
     binary = binarize(image)
-    projection = binary.sum(axis=1) / 255
-    active_rows = projection > max(2, projection.max() * 0.02)
-    bands = _row_bands(active_rows, min_height=min_band_height)
+    candidate_rows = _chant_row_candidates(binary)
     mask = np.zeros(binary.shape, dtype=np.uint8)
-    if not bands:
-        return np.full(binary.shape, 255, dtype=np.uint8)
+    if not candidate_rows:
+        return mask
 
-    heights = np.array([end - start for start, end in bands], dtype=float)
-    densities = np.array([projection[start:end].mean() for start, end in bands], dtype=float)
-    height_cutoff = max(float(np.median(heights)), float(np.percentile(heights, 65)))
-    density_cutoff = float(np.percentile(densities, 60))
-
-    for (start, end), height, density in zip(bands, heights, densities):
-        if height >= height_cutoff or density >= density_cutoff:
-            pad = max(2, int(height * 0.2))
-            mask[max(0, start - pad) : min(mask.shape[0], end + pad), :] = 255
+    pad = max(8, min(40, int(binary.shape[0] * 0.008)))
+    for start, end in candidate_rows:
+        mask[max(0, start - pad) : min(mask.shape[0], end + pad), :] = 255
     return mask
 
 
@@ -236,6 +232,24 @@ def _row_bands(active_rows: np.ndarray, *, min_height: int) -> list[tuple[int, i
     if start is not None and len(active_rows) - start >= min_height:
         bands.append((start, len(active_rows)))
     return bands
+
+
+def _chant_row_candidates(binary: np.ndarray) -> list[tuple[int, int]]:
+    height, width = binary.shape
+    component_count, _, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+    active_rows = np.zeros(height, dtype=bool)
+    min_width = max(18, int(width * 0.012))
+    max_height = max(10, int(height * 0.025))
+
+    for label in range(1, component_count):
+        x, y, component_width, component_height, area = stats[label]
+        if area < 6 or component_height == 0:
+            continue
+        aspect = component_width / component_height
+        if component_width >= min_width and component_height <= max_height and aspect >= 3.0:
+            active_rows[y : y + component_height] = True
+
+    return _row_bands(active_rows, min_height=1)
 
 
 def iter_pdf_paths(paths: Iterable[Path]) -> list[Path]:
