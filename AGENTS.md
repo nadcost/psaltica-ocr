@@ -12,6 +12,22 @@ bd close <id>         # Complete work
 bd dolt push          # Push beads data to remote
 ```
 
+## Autopilot Mode
+
+When the user says "autopilot", "continue", "work the next issue", or gives an equivalent instruction to proceed autonomously:
+
+1. Run `bd prime`, then `bd ready`.
+2. Pick the highest-priority ready issue unless the user named a specific issue.
+3. Run `bd show <id>` and `bd update <id> --claim` before changing files.
+4. Implement the issue end to end using this repo's plans and constraints.
+5. Run relevant quality gates for the files changed.
+6. Close completed beads issues with `bd close <id>`.
+7. Commit completed work with a clear message.
+8. Push only if a git remote is configured; otherwise report that the repo is local-only.
+9. Do not modify `/Users/nadcost/psaltica-praxis` unless the user explicitly requests it.
+
+While in autopilot, keep commands non-interactive, avoid parallel `bd` commands because this repo uses embedded Dolt, and create new beads issues for follow-up work that cannot be completed in the current pass.
+
 ## Non-Interactive Shell Commands
 
 **ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
