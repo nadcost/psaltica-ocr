@@ -10,6 +10,7 @@ from pathlib import Path
 
 from pdf2image import pdfinfo_from_path
 
+from psaltica_ocr.reading_order import load_direction_map, normalize_direction
 from psaltica_ocr.rendering import RenderedPage, iter_pdf_paths, render_pdf_pages
 
 
@@ -27,6 +28,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--chunk-size", type=int, default=25, help="Maximum pages rendered per pdf2image call")
     parser.add_argument("--resume-from-manifest", action="store_true", help="Skip pages already present in manifest")
+    parser.add_argument("--direction", choices=["ltr", "rtl", "auto"], default="ltr")
+    parser.add_argument("--direction-map", type=Path, help="JSON per-book/page direction overrides")
     parser.add_argument("--mask-lyrics", action="store_true")
     parser.add_argument("--force", action="store_true", help="Overwrite existing PNGs")
     return parser.parse_args()
@@ -43,6 +46,7 @@ def write_manifest(path: Path, pages: list[RenderedPage]) -> None:
         "width",
         "height",
         "masked",
+        "direction",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -157,6 +161,8 @@ def main() -> None:
         raise SystemExit("No PDF inputs found.")
 
     pages: list[RenderedPage] = []
+    direction_map = load_direction_map(args.direction_map)
+    direction = normalize_direction(args.direction)
     for pdf_path in pdf_paths:
         chunks = plan_pages(
             pdf_path,
@@ -176,6 +182,8 @@ def main() -> None:
                     first_page=first_page,
                     last_page=last_page,
                     mask=args.mask_lyrics,
+                    direction=direction,
+                    direction_map=direction_map,
                     force=args.force,
                 )
             )

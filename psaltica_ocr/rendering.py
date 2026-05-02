@@ -12,6 +12,8 @@ import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
 
+from psaltica_ocr.reading_order import DirectionMap, DirectionOption, detect_page_direction, resolve_direction
+
 
 @dataclass(frozen=True)
 class RenderedPage:
@@ -23,6 +25,7 @@ class RenderedPage:
     width: int
     height: int
     masked: bool
+    direction: str
 
 
 def page_output_path(output_root: Path, book_id: str, page_number: int) -> Path:
@@ -38,6 +41,8 @@ def render_pdf_pages(
     first_page: int | None = None,
     last_page: int | None = None,
     mask: bool = False,
+    direction: DirectionOption = "ltr",
+    direction_map: DirectionMap | None = None,
     force: bool = False,
 ) -> list[RenderedPage]:
     """Render one PDF into deterministic page PNGs under output_root/book_id."""
@@ -61,6 +66,13 @@ def render_pdf_pages(
         if image_path.exists() and not force:
             with Image.open(image_path) as existing:
                 width, height = existing.size
+                page_direction = _page_direction(
+                    pil_to_bgr(existing),
+                    resolved_book_id,
+                    page_number,
+                    direction=direction,
+                    direction_map=direction_map,
+                )
             rendered.append(
                 RenderedPage(
                     resolved_book_id,
@@ -71,10 +83,18 @@ def render_pdf_pages(
                     width,
                     height,
                     mask,
+                    page_direction,
                 )
             )
             continue
 
+        page_direction = _page_direction(
+            pil_to_bgr(image),
+            resolved_book_id,
+            page_number,
+            direction=direction,
+            direction_map=direction_map,
+        )
         if mask:
             np_image = pil_to_bgr(image)
             chant_mask = mask_lyrics(np_image)
@@ -92,6 +112,7 @@ def render_pdf_pages(
                 image.width,
                 image.height,
                 mask,
+                page_direction,
             )
         )
 
@@ -226,3 +247,17 @@ def iter_pdf_paths(paths: Iterable[Path]) -> list[Path]:
         elif path.suffix.lower() == ".pdf":
             pdfs.append(path)
     return pdfs
+
+
+def _page_direction(
+    image: np.ndarray,
+    book_id: str,
+    page_number: int,
+    *,
+    direction: DirectionOption,
+    direction_map: DirectionMap | None,
+) -> str:
+    resolved = resolve_direction(book_id, page_number, default=direction, direction_map=direction_map)
+    if resolved == "auto":
+        return detect_page_direction(image)
+    return resolved
