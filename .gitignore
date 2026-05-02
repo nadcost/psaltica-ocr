@@ -3,3 +3,25 @@
 .dolt/
 *.db
 .beads-credential-key
+
+# Python build/test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Project data and model outputs
+data/
+!data/
+data/*
+!data/*/
+!data/*/.gitkeep
+models/runs/
+!models/
+!models/runs/
+!models/runs/.gitkeep

@@ -1,0 +1,30 @@
+[project]
+name = "psaltica-ocr"
+version = "0.1.0"
+description = "Local OMR pipeline for printed Byzantine chant scores targeting Psaltica Praxis composition JSON."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "pandas",
+    "pdf2image",
+    "pillow",
+    "pydantic",
+    "pyyaml",
+    "streamlit",
+    "ultralytics",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
