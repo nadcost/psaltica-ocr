@@ -240,16 +240,49 @@ def _chant_row_candidates(binary: np.ndarray) -> list[tuple[int, int]]:
     active_rows = np.zeros(height, dtype=bool)
     min_width = max(18, int(width * 0.012))
     max_height = max(10, int(height * 0.025))
+    row_features: list[tuple[int, int, int, int]] = []
 
     for label in range(1, component_count):
         x, y, component_width, component_height, area = stats[label]
+        _ = x
         if area < 6 or component_height == 0:
             continue
         aspect = component_width / component_height
         if component_width >= min_width and component_height <= max_height and aspect >= 3.0:
             active_rows[y : y + component_height] = True
 
-    return _row_bands(active_rows, min_height=1)
+    for start, end in _row_bands(active_rows, min_height=1):
+        long_components = 0
+        long_width_sum = 0
+        total_components = 0
+        roi_start = max(0, start - max_height)
+        roi_end = min(height, end + max_height)
+        for label in range(1, component_count):
+            _, y, component_width, component_height, area = stats[label]
+            if area < 6 or component_height == 0:
+                continue
+            if y + component_height < roi_start or y > roi_end:
+                continue
+            total_components += 1
+            aspect = component_width / component_height
+            if component_width >= min_width and component_height <= max_height and aspect >= 3.0:
+                long_components += 1
+                long_width_sum += int(component_width)
+        if _is_probable_chant_row(long_components, long_width_sum, total_components):
+            row_features.append((start, end, long_components, long_width_sum))
+
+    if len(row_features) < 2 and not any(long_count >= 8 and width_sum >= min_width * 12 for _, _, long_count, width_sum in row_features):
+        return []
+
+    return [(start, end) for start, end, _, _ in row_features]
+
+
+def _is_probable_chant_row(long_components: int, long_width_sum: int, total_components: int) -> bool:
+    if total_components > 85:
+        return False
+    if long_components >= 8 and long_width_sum >= 300:
+        return True
+    return long_components >= 3 and long_width_sum >= 150 and total_components <= 75
 
 
 def iter_pdf_paths(paths: Iterable[Path]) -> list[Path]:

@@ -22,11 +22,15 @@ def test_binarize_returns_ink_as_white_binary() -> None:
 
 
 def test_mask_lyrics_keeps_tall_chant_rows_and_drops_short_text_rows() -> None:
-    image = np.full((120, 160), 255, dtype=np.uint8)
-    image[18:23, 20:140] = 0
+    image = np.full((120, 240), 255, dtype=np.uint8)
+    image[18:23, 20:75] = 0
+    image[18:23, 85:140] = 0
+    image[18:23, 150:205] = 0
     image[46:54, 25:36] = 0
     image[46:54, 45:56] = 0
-    image[80:85, 20:140] = 0
+    image[80:85, 20:75] = 0
+    image[80:85, 85:140] = 0
+    image[80:85, 150:205] = 0
     image[108:114, 25:36] = 0
 
     mask = mask_lyrics(image)
@@ -35,6 +39,18 @@ def test_mask_lyrics_keeps_tall_chant_rows_and_drops_short_text_rows() -> None:
     text_coverage = np.mean(mask[47:53, :] == 255)
     assert chant_coverage > 0.9
     assert text_coverage < 0.2
+
+
+def test_mask_lyrics_blanks_prose_like_rows() -> None:
+    image = np.full((160, 240), 255, dtype=np.uint8)
+    for y in range(20, 140, 20):
+        for x in range(30, 210, 18):
+            image[y : y + 8, x : x + 10] = 0
+        image[y + 5 : y + 7, 50:72] = 0
+
+    mask = mask_lyrics(image)
+
+    assert np.mean(mask == 255) == 0
 
 
 def test_apply_mask_paints_non_chant_rows_white() -> None:
