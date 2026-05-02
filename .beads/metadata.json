@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "psaltica_ocr",
+  "project_id": "41b904a4-e4d0-4e43-be4b-905de5e0fb06"
+}
