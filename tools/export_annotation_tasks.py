@@ -7,8 +7,6 @@ import argparse
 import csv
 import json
 from pathlib import Path
-from urllib.parse import quote
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -34,7 +32,7 @@ def local_file_url(path: str | Path, *, root: Path) -> str:
     relative = Path(path)
     if relative.is_absolute():
         relative = relative.relative_to(root.resolve())
-    return f"/data/local-files/?d={quote(relative.as_posix())}"
+    return f"/data/local-files/?d={relative.as_posix()}"
 
 
 def task_rows(
@@ -64,7 +62,7 @@ def task_rows(
                 }
             }
         )
-        if len(tasks) >= limit:
+        if limit > 0 and len(tasks) >= limit:
             break
     return tasks
 

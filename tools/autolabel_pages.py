@@ -191,10 +191,9 @@ def to_ls_result(
 
 
 def image_url(image_path: Path, local_files_root: Path) -> str:
-    from urllib.parse import quote
     try:
         rel = image_path.resolve().relative_to(local_files_root.resolve())
-        return f"/data/local-files/?d={quote(rel.as_posix())}"
+        return f"/data/local-files/?d={rel.as_posix()}"
     except ValueError:
         return str(image_path)
 
