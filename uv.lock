@@ -1318,6 +1318,7 @@ name = "psaltica-ocr"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fonttools" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pandas" },
@@ -1336,6 +1337,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fonttools", specifier = ">=4.62.1" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pandas" },

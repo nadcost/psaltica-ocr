@@ -5,6 +5,7 @@ description = "Local OMR pipeline for printed Byzantine chant scores targeting P
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "fonttools>=4.62.1",
     "numpy",
     "opencv-python-headless",
     "pandas",
