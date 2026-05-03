@@ -8,7 +8,7 @@ import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import yaml
 
@@ -59,6 +59,11 @@ def task_image_path(task: dict, *, image_root: Path) -> Path:
         return Path(unquote(parsed.path))
     if parsed.scheme in {"http", "https"}:
         return image_root / Path(unquote(parsed.path)).name
+    # Label Studio local-files URL: /data/local-files/?d=<relative-path>
+    if parsed.path == "/data/local-files/":
+        qs = parse_qs(parsed.query)
+        if "d" in qs:
+            return image_root / Path(unquote(qs["d"][0]))
     path = Path(unquote(raw))
     if path.is_absolute():
         return path

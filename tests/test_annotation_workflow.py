@@ -5,7 +5,7 @@ import yaml
 
 from tools.export_annotation_tasks import local_file_url, task_rows
 from tools.export_label_studio_config import label_xml
-from tools.import_labels import convert_export, load_class_names
+from tools.import_labels import convert_export, load_class_names, task_image_path
 
 
 def test_label_studio_config_escapes_labels() -> None:
@@ -105,6 +105,18 @@ def test_annotation_task_rows_can_emit_label_studio_local_file_urls() -> None:
 
 
 def test_local_file_url_encodes_unicode_and_spaces() -> None:
-    assert local_file_url("data/pages/Θεία Λειτουργία/page_0001.png", root=Path(".").resolve()) == (
-        "/data/local-files/?d=data/pages/%CE%98%CE%B5%CE%B9%CC%81%CE%B1%20%CE%9B%CE%B5%CE%B9%CF%84%CE%BF%CF%85%CF%81%CE%B3%CE%B9%CC%81%CE%B1/page_0001.png"
+    assert local_file_url("data/pages/Θεία Λειτουργία/page_0001.png", root=Path(".").resolve()) == (
+        "/data/local-files/?d=data/pages/%CE%98%CE%B5%CE%AF%CE%B1%20%CE%9B%CE%B5%CE%B9%CF%84%CE%BF%CF%85%CF%81%CE%B3%CE%AF%CE%B1/page_0001.png"
     )
+
+
+def test_task_image_path_resolves_label_studio_local_file_url(tmp_path: Path) -> None:
+    task = {"data": {"image": "/data/local-files/?d=data/pages/book/page_0001.png"}}
+    result = task_image_path(task, image_root=tmp_path)
+    assert result == tmp_path / "data/pages/book/page_0001.png"
+
+
+def test_task_image_path_resolves_label_studio_local_file_url_with_spaces(tmp_path: Path) -> None:
+    task = {"data": {"image": "/data/local-files/?d=data/pages/Holy%20Week/page_0001.png"}}
+    result = task_image_path(task, image_root=tmp_path)
+    assert result == tmp_path / "data/pages/Holy Week/page_0001.png"

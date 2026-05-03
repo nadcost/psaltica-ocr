@@ -48,13 +48,27 @@ def write_manifest(path: Path, pages: list[RenderedPage]) -> None:
         "masked",
         "direction",
     ]
+    new_rows = []
+    for page in pages:
+        row = asdict(page)
+        row["image_path"] = str(page.image_path)
+        new_rows.append(row)
+
+    new_keys = {(row["book_id"], int(row["page_number"])) for row in new_rows}
+    existing: list[dict] = []
+    if path.exists():
+        with path.open("r", newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                if (row["book_id"], int(row["page_number"])) not in new_keys:
+                    existing.append(row)
+
+    all_rows = existing + new_rows
+    all_rows.sort(key=lambda r: (r["book_id"], int(r["page_number"])))
+
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
-        for page in pages:
-            row = asdict(page)
-            row["image_path"] = str(page.image_path)
-            writer.writerow(row)
+        writer.writerows(all_rows)
 
 
 def parse_page_range(value: str | None) -> list[int] | None:
