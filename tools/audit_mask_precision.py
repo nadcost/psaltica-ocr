@@ -7,11 +7,7 @@ import argparse
 import csv
 from pathlib import Path
 
-import numpy as np
-from PIL import Image
-
-
-Image.MAX_IMAGE_PIXELS = None
+from psaltica_ocr.rendering import compute_ink_ratio
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,12 +18,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-blank-ratio", type=float, default=0.0003)
     parser.add_argument("--min-precision", type=float, default=0.90)
     return parser.parse_args()
-
-
-def ink_ratio(path: Path) -> float:
-    image = Image.open(path).convert("L")
-    pixels = np.asarray(image)
-    return float(np.mean(pixels < 245))
 
 
 def read_audit_rows(path: Path) -> list[dict[str, str]]:
@@ -45,7 +35,7 @@ def audit_rows(
     for row in rows:
         path = Path(row["image_path"])
         expected = row["expected"]
-        ratio = ink_ratio(path)
+        ratio = compute_ink_ratio(path)
         if expected == "content":
             passed = ratio >= min_content_ratio
         elif expected == "blank":

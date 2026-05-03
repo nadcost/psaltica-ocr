@@ -29,6 +29,7 @@ class RenderedPage:
     height: int
     masked: bool
     direction: str
+    ink_ratio: float
 
 
 def page_output_path(output_root: Path, book_id: str, page_number: int) -> Path:
@@ -87,6 +88,7 @@ def render_pdf_pages(
                     height,
                     mask,
                     page_direction,
+                    compute_ink_ratio(image_path),
                 )
             )
             continue
@@ -116,10 +118,18 @@ def render_pdf_pages(
                 image.height,
                 mask,
                 page_direction,
+                compute_ink_ratio(image_path),
             )
         )
 
     return rendered
+
+
+def compute_ink_ratio(path: Path) -> float:
+    """Return the fraction of pixels darker than 245 in a grayscale image."""
+    with Image.open(path) as img:
+        pixels = np.asarray(img.convert("L"))
+    return float(np.mean(pixels < 245))
 
 
 def sha256_file(path: Path) -> str:

@@ -47,6 +47,7 @@ def write_manifest(path: Path, pages: list[RenderedPage]) -> None:
         "height",
         "masked",
         "direction",
+        "ink_ratio",
     ]
     new_rows = []
     for page in pages:
