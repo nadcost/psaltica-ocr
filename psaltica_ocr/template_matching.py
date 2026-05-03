@@ -187,6 +187,60 @@ def match_cascade_page(
     return kept
 
 
+def get_font_codepoints(font_path: Path = FONT_PATH) -> dict[int, str]:
+    """Return {codepoint: glyph_name} for all mapped glyphs in the font."""
+    from fontTools.ttLib import TTFont  # noqa: PLC0415
+    tt = TTFont(str(font_path))
+    cmap = tt.getBestCmap() or {}
+    tt.close()
+    return dict(cmap)
+
+
+def build_templates_from_font(
+    font_path: Path = FONT_PATH,
+    sizes_pt: list[float] | None = None,
+    min_area: int = 80,
+    codepoint_range: tuple[int, int] | None = (0xE000, 0xF8FF),
+) -> tuple[dict[str, list[tuple[float, np.ndarray]]], dict[str, int]]:
+    """Build templates for every renderable glyph in the font.
+
+    Returns:
+        templates  — {hex_key: [(pt, array), ...]} for use with match_cascade_page
+        codepoints — {hex_key: codepoint} for output metadata
+
+    Args:
+        codepoint_range: (lo, hi) inclusive filter; None = all codepoints.
+                         Defaults to the PUA range where Psaltica neumes live.
+        min_area: minimum template pixel area to include (filters whitespace/tiny marks).
+        sizes_pt: font sizes to render; defaults to [7.0, 8.0, 9.0] (fewer than the
+                  default 7 sizes to keep runtime manageable for large glyph sets).
+    """
+    if sizes_pt is None:
+        sizes_pt = [7.0, 8.0, 9.0]
+
+    all_codepoints = get_font_codepoints(font_path)
+    templates: dict[str, list[tuple[float, np.ndarray]]] = {}
+    metadata: dict[str, int] = {}
+
+    for codepoint in sorted(all_codepoints):
+        if codepoint_range is not None:
+            lo, hi = codepoint_range
+            if not (lo <= codepoint <= hi):
+                continue
+        char = chr(codepoint)
+        key = f"U+{codepoint:04X}"
+        variants: list[tuple[float, np.ndarray]] = []
+        for pt in sizes_pt:
+            tmpl = render_template(char, pt)
+            if tmpl is not None and tmpl.shape[0] * tmpl.shape[1] >= min_area:
+                variants.append((pt, tmpl))
+        if variants:
+            templates[key] = variants
+            metadata[key] = codepoint
+
+    return templates, metadata
+
+
 def load_symbol_map(path: Path) -> dict[str, str]:
     """Return icon -> insert_string mapping (first match per icon)."""
     with path.open(encoding="utf-8") as f:

@@ -1,28 +1,30 @@
 #!/usr/bin/env python3
-"""Count per-symbol detection frequency across pages to inform keyboard layout design.
+"""Count per-glyph detection frequency across pages using only the font file.
 
-Uses cascade (composite-first) template matching: composite glyphs whose templates
-are physically larger suppress their individual components in the same region, so
-OnePlusOneUp is counted once as OnePlusOneUp rather than as Oligon + Kendima.
-If no composite match is found at a location the individual components are still
-detected independently.
+Reads every glyph directly from PsalticaPraxisUnified.ttf (no dependency on the
+app's symbol map or classes.yaml), renders templates, and runs cascade
+(largest-first) matching on a sample of rendered pages.
+
+Composite glyphs whose templates are physically wider/taller automatically
+suppress their component glyphs in the same region — the largest matching
+template wins.
 
 Outputs:
-  data/neume_frequencies.csv   — ranked table (rank, group, class, count, per_page, %)
-  data/neume_frequencies.html  — visual report with font glyph images and frequency bars
+  data/neume_frequencies.csv   — rank, U+XXXX, count, per_page, pct_of_total
+  data/neume_frequencies.html  — rendered glyph image + frequency bar per entry
 
 Usage:
-  # 100-page random sample across all books (default, ~2–3 min)
+  # 100-page random sample (default, ~10–15 min for 675 PUA glyphs)
   python tools/count_neume_frequencies.py
 
-  # Specific book
-  python tools/count_neume_frequencies.py --book Mass --sample 80
-
-  # All pages
-  python tools/count_neume_frequencies.py --all
-
-  # Quick smoke test
+  # Specific pages (fast smoke test)
   python tools/count_neume_frequencies.py --pages data/pages/Mass/page_0025.png
+
+  # Specific book
+  python tools/count_neume_frequencies.py --book Mass --sample 50
+
+  # All non-blank pages (slow)
+  python tools/count_neume_frequencies.py --all
 """
 
 from __future__ import annotations
@@ -34,53 +36,44 @@ from collections import defaultdict
 from pathlib import Path
 
 import cv2
-import yaml
 
 from psaltica_ocr.template_matching import (
+    FONT_PATH,
     MATCH_THRESHOLD,
-    MATCHABLE_GROUPS,
     NMS_IOU_THRESHOLD,
-    build_templates,
-    load_symbol_map,
+    build_templates_from_font,
     match_cascade_page,
     render_glyph_b64,
 )
 
-GROUP_ORDER = [
-    "base_neume",
-    "rest",
-    "modifier_modulation",
-    "mode",
-    "key_signature",
-]
-
-GROUP_LABELS = {
-    "base_neume": "Base Neumes",
-    "rest": "Rests",
-    "modifier_modulation": "Modulation Markers",
-    "mode": "Mode Indicators",
-    "key_signature": "Key Signatures",
-}
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--pages", nargs="+", type=Path, help="Specific page image paths")
-    source.add_argument("--book", help="Single book ID (data/pages/<book>/)")
-    source.add_argument("--all", action="store_true", help="Use all non-blank pages from manifest")
+    source.add_argument("--pages", nargs="+", type=Path)
+    source.add_argument("--book", help="Book ID (data/pages/<book>/)")
+    source.add_argument("--all", action="store_true", help="All non-blank pages")
+
     parser.add_argument("--sample", type=int, default=100,
                         help="Pages to sample when no explicit list given (default: 100)")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--manifest", type=Path, default=Path("data/pages/manifest.csv"))
-    parser.add_argument("--classes", type=Path, default=Path("config/classes.yaml"))
-    parser.add_argument("--symbol-map", type=Path, default=Path("config/symbol_map.json"))
+    parser.add_argument("--font", type=Path, default=FONT_PATH)
+    parser.add_argument("--threshold", type=float, default=MATCH_THRESHOLD)
+    parser.add_argument("--min-area", type=int, default=80,
+                        help="Min template pixel area; filters whitespace/tiny marks (default: 80)")
+    parser.add_argument("--sizes", type=float, nargs="+", default=[7.0, 8.0, 9.0],
+                        help="Font sizes in pt to render templates at (default: 7 8 9)")
     parser.add_argument("--output-csv", type=Path, default=Path("data/neume_frequencies.csv"))
     parser.add_argument("--output-html", type=Path, default=Path("data/neume_frequencies.html"))
-    parser.add_argument("--threshold", type=float, default=MATCH_THRESHOLD)
-    parser.add_argument("--no-html", action="store_true", help="Skip HTML report generation")
+    parser.add_argument("--no-html", action="store_true")
     return parser.parse_args()
 
+
+# ---------------------------------------------------------------------------
+# Page collection
+# ---------------------------------------------------------------------------
 
 def collect_pages(args: argparse.Namespace) -> list[Path]:
     if args.pages:
@@ -112,6 +105,10 @@ def collect_pages(args: argparse.Namespace) -> list[Path]:
     return sorted(rng.sample(candidates, args.sample))
 
 
+# ---------------------------------------------------------------------------
+# Per-page counting
+# ---------------------------------------------------------------------------
+
 def count_page(
     image_path: Path,
     templates: dict,
@@ -121,7 +118,6 @@ def count_page(
     if img is None:
         return {}
     _, img = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY)
-
     kept = match_cascade_page(img, templates, threshold, NMS_IOU_THRESHOLD)
     counts: dict[str, int] = defaultdict(int)
     for *_, label in kept:
@@ -133,43 +129,35 @@ def count_page(
 # Text report
 # ---------------------------------------------------------------------------
 
-def print_report(counts: dict[str, int], classes: list[str], pages_processed: int) -> None:
+def print_report(
+    counts: dict[str, int],
+    metadata: dict[str, int],
+    pages_processed: int,
+) -> None:
     total = sum(counts.values())
     if total == 0:
         print("No detections.")
         return
 
-    print(f"\n{'═' * 72}")
-    print(f"  Neume frequency report — {pages_processed} pages, {total:,} total detections")
-    print(f"{'═' * 72}")
+    ranked = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+    top_n = ranked[:40]
 
-    for group in GROUP_ORDER:
-        group_classes = [c for c in classes if c.split(".", 1)[0] == group and c in counts]
-        if not group_classes:
-            continue
-        group_total = sum(counts[c] for c in group_classes)
-        group_pct = group_total / total * 100
-        label = GROUP_LABELS.get(group, group)
-        print(f"\n  {label.upper()}  ({group_total:,}  {group_pct:.1f}% of total)")
-        print(f"  {'─' * 60}")
-        ranked = sorted(group_classes, key=lambda c: counts[c], reverse=True)
-        for cls in ranked:
-            icon = cls.split(".", 1)[1]
-            n = counts[cls]
-            per_page = n / pages_processed
-            bar = "█" * min(30, max(1, int(n / total * 300)))
-            print(f"  {icon:<32}  {n:>6,}  {per_page:>6.1f}/pg  {bar}")
-
-    undetected = [
-        c for c in classes
-        if c.split(".", 1)[0] in MATCHABLE_GROUPS and c not in counts
-    ]
+    print(f"\n{'═' * 68}")
+    print(f"  Neume frequency — {pages_processed} pages, {total:,} detections, "
+          f"{len(counts)} glyphs detected")
+    print(f"{'═' * 68}")
+    print(f"  {'Codepoint':<12}  {'Count':>7}  {'Per page':>8}  Frequency")
+    print(f"  {'─' * 60}")
+    for key, n in top_n:
+        per_page = n / pages_processed
+        bar = "█" * min(30, max(1, int(n / total * 300)))
+        print(f"  {key:<12}  {n:>7,}  {per_page:>7.1f}/pg  {bar}")
+    if len(ranked) > 40:
+        print(f"  … {len(ranked) - 40} more glyphs detected (see HTML/CSV for full list)")
+    undetected = len(metadata) - len(counts)
     if undetected:
-        names = ", ".join(c.split(".", 1)[1] for c in undetected[:12])
-        suffix = "…" if len(undetected) > 12 else ""
-        print(f"\n  NOT DETECTED ({len(undetected)} classes): {names}{suffix}")
-
-    print(f"\n{'═' * 72}\n")
+        print(f"\n  {undetected} glyphs in font not detected on sampled pages")
+    print(f"\n{'═' * 68}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -179,36 +167,30 @@ def print_report(counts: dict[str, int], classes: list[str], pages_processed: in
 def write_csv(
     output: Path,
     counts: dict[str, int],
-    classes: list[str],
+    metadata: dict[str, int],
     pages_processed: int,
 ) -> None:
     total = sum(counts.values())
     rows = []
-    for cls in classes:
-        group = cls.split(".", 1)[0]
-        if group not in MATCHABLE_GROUPS:
-            continue
-        n = counts.get(cls, 0)
-        group_total = sum(counts.get(c, 0) for c in classes if c.split(".", 1)[0] == group)
+    for key, codepoint in metadata.items():
+        n = counts.get(key, 0)
         rows.append({
-            "group": group,
-            "class": cls,
-            "icon": cls.split(".", 1)[1],
+            "rank": 0,
+            "codepoint": key,
+            "codepoint_dec": codepoint,
             "count": n,
             "per_page": round(n / pages_processed, 3) if pages_processed else 0,
-            "pct_of_group": round(n / group_total * 100, 2) if group_total else 0,
-            "pct_of_total": round(n / total * 100, 2) if total else 0,
+            "pct_of_total": round(n / total * 100, 3) if total else 0,
         })
-    rows.sort(key=lambda r: (-r["count"], r["group"], r["class"]))
-    for rank, row in enumerate(rows, 1):
-        row["rank"] = rank
+    rows.sort(key=lambda r: (-r["count"], r["codepoint_dec"]))
+    for i, row in enumerate(rows, 1):
+        row["rank"] = i
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
-            f,
-            fieldnames=["rank", "group", "class", "icon", "count",
-                        "per_page", "pct_of_group", "pct_of_total"],
+            f, fieldnames=["rank", "codepoint", "codepoint_dec",
+                           "count", "per_page", "pct_of_total"],
         )
         writer.writeheader()
         writer.writerows(rows)
@@ -221,16 +203,22 @@ def write_csv(
 def write_html(
     output: Path,
     counts: dict[str, int],
-    classes: list[str],
-    icon_to_insert: dict[str, str],
+    metadata: dict[str, int],
+    font_path: Path,
     pages_processed: int,
 ) -> None:
     total = sum(counts.values())
     if total == 0:
         return
 
-    def bar_html(n: int, group_max: int) -> str:
-        pct = int(n / group_max * 100) if group_max else 0
+    rows_by_count = sorted(
+        metadata.items(),
+        key=lambda kv: (-counts.get(kv[0], 0), kv[1]),
+    )
+    max_count = max(counts.values()) if counts else 1
+
+    def bar_html(n: int) -> str:
+        pct = int(n / max_count * 100) if max_count else 0
         return (
             f'<div class="bar-wrap">'
             f'<div class="bar" style="width:{pct}%"></div>'
@@ -238,83 +226,80 @@ def write_html(
             f'</div>'
         )
 
-    sections = []
-    for group in GROUP_ORDER:
-        group_label = GROUP_LABELS.get(group, group)
-        group_classes = [c for c in classes if c.split(".", 1)[0] == group]
-        group_total = sum(counts.get(c, 0) for c in group_classes)
-        if group_total == 0:
-            continue
-        group_max = max(counts.get(c, 0) for c in group_classes)
-        group_pct = group_total / total * 100
+    detected_rows = []
+    zero_rows = []
 
-        rows_html = []
-        ranked = sorted(group_classes, key=lambda c: counts.get(c, 0), reverse=True)
-        for cls in ranked:
-            icon = cls.split(".", 1)[1]
-            insert = icon_to_insert.get(icon, "")
-            n = counts.get(cls, 0)
-            per_page = n / pages_processed if pages_processed else 0
-            b64 = render_glyph_b64(insert) if insert else ""
-            img_html = (
-                f'<img src="data:image/png;base64,{b64}" width="48" height="48" alt="{icon}"/>'
-                if b64 else '<span class="no-glyph">?</span>'
-            )
-            row_class = "zero" if n == 0 else ""
-            rows_html.append(
-                f'<tr class="{row_class}">'
-                f'<td class="glyph">{img_html}</td>'
-                f'<td class="name" title="{cls}">{icon}</td>'
-                f'<td class="rate">{per_page:.1f}/pg</td>'
-                f'<td class="bar-cell">{bar_html(n, group_max)}</td>'
-                f'</tr>'
-            )
+    for key, codepoint in rows_by_count:
+        n = counts.get(key, 0)
+        char = chr(codepoint)
+        per_page = n / pages_processed if pages_processed else 0
+        b64 = render_glyph_b64(char, size_px=96, thumb_px=48)
+        img_html = (
+            f'<img src="data:image/png;base64,{b64}" width="48" height="48" alt="{key}"/>'
+            if b64 else '<span class="no-glyph">?</span>'
+        )
+        row_html = (
+            f'<tr>'
+            f'<td class="glyph">{img_html}</td>'
+            f'<td class="cp" title="decimal: {codepoint}">{key}</td>'
+            f'<td class="rate">{per_page:.1f}/pg</td>'
+            f'<td class="bar-cell">{bar_html(n)}</td>'
+            f'</tr>'
+        )
+        if n > 0:
+            detected_rows.append(row_html)
+        else:
+            zero_rows.append(row_html)
 
-        sections.append(
-            f'<section>'
-            f'<h2>{group_label}'
-            f' <span class="group-total">{group_total:,} detections'
-            f' &nbsp;·&nbsp; {group_pct:.1f}% of total</span></h2>'
-            f'<table>{"".join(rows_html)}</table>'
-            f'</section>'
+    # Show undetected collapsed by default
+    undetected_section = ""
+    if zero_rows:
+        undetected_section = (
+            f'<details><summary style="cursor:pointer;padding:8px 0;color:#888;">'
+            f'{len(zero_rows)} glyphs not detected on sampled pages</summary>'
+            f'<table class="zero-table">{"".join(zero_rows)}</table>'
+            f'</details>'
         )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>Psaltica OCR — Neume Frequencies</title>
+<title>Psaltica — Neume Glyph Frequencies</title>
 <style>
   body {{ font-family: sans-serif; background: #f5f5f5; padding: 16px 24px; color: #222; }}
   h1 {{ font-size: 1.3em; margin-bottom: 4px; }}
-  .subtitle {{ color: #666; font-size: 0.9em; margin-bottom: 32px; }}
-  section {{ background: white; border-radius: 6px; padding: 16px 20px;
-             margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }}
-  h2 {{ font-size: 1em; margin: 0 0 12px 0; border-bottom: 2px solid #e0e0e0;
-        padding-bottom: 6px; }}
-  .group-total {{ font-weight: normal; color: #888; font-size: 0.85em; }}
+  .subtitle {{ color: #666; font-size: 0.9em; margin-bottom: 24px; }}
+  .card {{ background: white; border-radius: 6px; padding: 16px 20px;
+           margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }}
   table {{ border-collapse: collapse; width: 100%; }}
   tr {{ border-bottom: 1px solid #f0f0f0; }}
   tr:last-child {{ border-bottom: none; }}
-  tr.zero {{ opacity: 0.35; }}
   td {{ padding: 4px 8px; vertical-align: middle; }}
   td.glyph {{ width: 56px; text-align: center; }}
-  td.name {{ width: 220px; font-size: 0.82em; font-family: monospace; color: #444; }}
+  td.cp {{ width: 100px; font-size: 0.82em; font-family: monospace; color: #555; }}
   td.rate {{ width: 70px; text-align: right; font-size: 0.8em; color: #888; }}
-  td.bar-cell {{ }}
   .bar-wrap {{ display: flex; align-items: center; gap: 8px; }}
-  .bar {{ height: 16px; background: #4a90d9; border-radius: 2px; min-width: 2px; }}
+  .bar {{ height: 14px; background: #4a90d9; border-radius: 2px; min-width: 2px; }}
   .bar-num {{ font-size: 0.8em; color: #555; white-space: nowrap; }}
   .no-glyph {{ font-size: 1.4em; color: #ccc; }}
+  .zero-table tr {{ opacity: 0.4; }}
   img {{ display: block; margin: auto; }}
+  details {{ margin-top: 8px; }}
 </style>
 </head>
 <body>
-<h1>Psaltica OCR — Neume Frequency Report</h1>
-<p class="subtitle">{pages_processed} pages sampled &nbsp;·&nbsp;
-{total:,} total detections &nbsp;·&nbsp;
-Cascade matching (composite glyphs suppress components)</p>
-{"".join(sections)}
+<h1>Psaltica — Neume Glyph Frequency Report</h1>
+<p class="subtitle">
+  {pages_processed} pages sampled &nbsp;·&nbsp;
+  {total:,} total detections &nbsp;·&nbsp;
+  {len(counts)}/{len(metadata)} PUA glyphs detected &nbsp;·&nbsp;
+  Cascade matching (larger glyphs suppress components)
+</p>
+<div class="card">
+<table>{"".join(detected_rows)}</table>
+{undetected_section}
+</div>
 </body>
 </html>
 """
@@ -329,19 +314,18 @@ Cascade matching (composite glyphs suppress components)</p>
 def main() -> None:
     args = parse_args()
 
-    with args.classes.open(encoding="utf-8") as f:
-        classes = yaml.safe_load(f)["names"]
-    icon_to_insert = load_symbol_map(args.symbol_map)
-
-    print("Rendering templates…")
-    templates = build_templates(classes, icon_to_insert)
-    matchable = [c for c in classes if c.split(".", 1)[0] in MATCHABLE_GROUPS]
-    print(f"  {len(templates)}/{len(matchable)} matchable classes have templates")
+    print(f"Loading font glyphs from {args.font.name}…")
+    templates, metadata = build_templates_from_font(
+        font_path=args.font,
+        sizes_pt=args.sizes,
+        min_area=args.min_area,
+    )
+    print(f"  {len(templates)} glyphs with renderable templates (sizes: {args.sizes} pt)")
 
     pages = collect_pages(args)
     if not pages:
         raise SystemExit("No pages found.")
-    print(f"Processing {len(pages)} pages (cascade matching)…")
+    print(f"Processing {len(pages)} pages…")
 
     totals: dict[str, int] = defaultdict(int)
     width = len(str(len(pages)))
@@ -354,13 +338,14 @@ def main() -> None:
               f"(running total: {sum(totals.values()):,})")
 
     counts = dict(totals)
-    print_report(counts, classes, len(pages))
+    print_report(counts, metadata, len(pages))
 
-    write_csv(args.output_csv, counts, classes, len(pages))
+    write_csv(args.output_csv, counts, metadata, len(pages))
     print(f"Wrote {args.output_csv}")
 
     if not args.no_html:
-        write_html(args.output_html, counts, classes, icon_to_insert, len(pages))
+        print("Rendering glyph images for HTML report…")
+        write_html(args.output_html, counts, metadata, args.font, len(pages))
         print(f"Wrote {args.output_html}")
 
 
