@@ -20,7 +20,6 @@ import json
 from pathlib import Path
 
 import cv2
-import numpy as np
 import yaml
 
 from psaltica_ocr.template_matching import (
@@ -29,8 +28,7 @@ from psaltica_ocr.template_matching import (
     NMS_IOU_THRESHOLD,
     build_templates,
     load_symbol_map,
-    match_template_on_page,
-    nms,
+    match_cascade_page,
 )
 
 
@@ -100,13 +98,7 @@ def process_page(
     # Binarize page to match the binarized templates
     _, img = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY)
 
-    all_detections: list[tuple[int, int, int, int, float, str]] = []
-    for label, variants in templates.items():
-        for _pt, tmpl in variants:
-            for x, y, w, h, score in match_template_on_page(img, tmpl, threshold):
-                all_detections.append((x, y, w, h, score, label))
-
-    kept = nms(all_detections, NMS_IOU_THRESHOLD)
+    kept = match_cascade_page(img, templates, threshold, NMS_IOU_THRESHOLD)
     results = [
         to_ls_result(x, y, w, h, page_w, page_h, label, score)
         for x, y, w, h, score, label in kept
@@ -114,7 +106,7 @@ def process_page(
 
     return {
         "data": {"image": image_url(image_path, local_files_root)},
-        "predictions": [{"result": results, "score": float(np.mean([r["score"] for r in results])) if results else 0.0}],
+        "predictions": [{"result": results, "score": sum(r["score"] for r in results) / len(results) if results else 0.0}],
     }
 
 
