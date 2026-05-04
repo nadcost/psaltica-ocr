@@ -6,10 +6,12 @@ from psaltica_ocr.font_shape_matching import (
     GlyphShape,
     MatchDetection,
     group_similar_shapes,
+    detection_frequencies,
     non_max_suppression,
     normalize_shape,
     parse_codepoint_ranges,
     shape_similarity,
+    write_match_report_html,
 )
 
 
@@ -62,3 +64,46 @@ def test_non_max_suppression_keeps_best_overlapping_detection() -> None:
 
 def test_parse_codepoint_ranges() -> None:
     assert parse_codepoint_ranges(["E0D0-E0D2", "U+0174"]) == [(0xE0D0, 0xE0D2), (0x0174, 0x0174)]
+
+
+def test_detection_frequencies() -> None:
+    pages = [
+        {"detections": [{"groupId": "shape_0001"}, {"groupId": "shape_0002"}]},
+        {"detections": [{"groupId": "shape_0001"}]},
+    ]
+
+    assert detection_frequencies(pages) == {"shape_0001": 2, "shape_0002": 1}
+
+
+def test_write_match_report_html_includes_members_names_and_frequency(tmp_path) -> None:
+    groups_payload = {
+        "groups": [
+            {
+                "id": "shape_0001",
+                "representative": "U+E001",
+                "members": [
+                    {"codepoint": "U+E001", "glyphName": "glyph.one", "icons": ["Oligon"]},
+                    {"codepoint": "U+E002", "glyphName": "glyph.two", "icons": []},
+                ],
+            }
+        ]
+    }
+    pages = [{"image": "page.png", "detections": [{"groupId": "shape_0001"}]}]
+    output = tmp_path / "report.html"
+
+    write_match_report_html(
+        output,
+        font_path=tmp_path / "missing.ttf",
+        groups_payload=groups_payload,
+        pages=pages,
+        match_threshold=0.75,
+        shape_threshold=0.86,
+    )
+
+    html = output.read_text(encoding="utf-8")
+    assert "Glyph matched" in html
+    assert "U+E001" in html
+    assert "U+E002" in html
+    assert "Oligon" in html
+    assert "shape_0001" in html
+    assert '<span class="count">1</span>' in html

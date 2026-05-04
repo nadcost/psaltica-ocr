@@ -10,6 +10,7 @@ Outputs:
   data/font_shape_groups.json
   data/annotations/font_shape_matches.json
   data/annotations/font_shape_matches.csv
+  data/annotations/font_shape_matches.html
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from psaltica_ocr.font_shape_matching import (
     match_shape_groups_on_page,
     parse_codepoint_ranges,
     write_detections_csv,
+    write_match_report_html,
 )
 from psaltica_ocr.template_matching import DPI, FONT_PATH, NMS_IOU_THRESHOLD
 
@@ -66,6 +68,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--groups-json", type=Path, default=Path("data/font_shape_groups.json"))
     parser.add_argument("--output-json", type=Path, default=Path("data/annotations/font_shape_matches.json"))
     parser.add_argument("--output-csv", type=Path, default=Path("data/annotations/font_shape_matches.csv"))
+    parser.add_argument("--output-html", type=Path, default=Path("data/annotations/font_shape_matches.html"))
     return parser.parse_args()
 
 
@@ -167,8 +170,17 @@ def main() -> None:
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(json.dumps(output_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     write_detections_csv(args.output_csv, page_payloads)
+    write_match_report_html(
+        args.output_html,
+        font_path=args.font,
+        groups_payload=groups_payload,
+        pages=page_payloads,
+        match_threshold=args.match_threshold,
+        shape_threshold=args.shape_threshold,
+    )
     print(f"Wrote matches -> {args.output_json}")
     print(f"Wrote CSV -> {args.output_csv}")
+    print(f"Wrote HTML -> {args.output_html}")
 
 
 if __name__ == "__main__":

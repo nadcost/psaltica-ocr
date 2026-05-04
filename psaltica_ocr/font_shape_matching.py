@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import csv
+import html
+import io
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -210,6 +213,24 @@ def load_icon_map(path: Path = Path("config/symbol_map.json")) -> dict[int, list
             if icon not in icons[ord(char)]:
                 icons[ord(char)].append(icon)
     return icons
+
+
+def render_glyph_png_b64(codepoint: int, font_path: Path = FONT_PATH, *, size_px: int = 96) -> str:
+    bitmap = render_glyph_bitmap(chr(codepoint), font_path, size_px=size_px, pad=8)
+    if bitmap is None:
+        return ""
+    cropped = crop_to_ink(bitmap)
+    if cropped is None:
+        return ""
+    image = Image.fromarray(cropped).convert("RGB")
+    image.thumbnail((64, 64), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGB", (72, 72), (255, 255, 255))
+    left = (canvas.width - image.width) // 2
+    top = (canvas.height - image.height) // 2
+    canvas.paste(image, (left, top))
+    buffer = io.BytesIO()
+    canvas.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 def build_glyph_shapes(
@@ -446,3 +467,125 @@ def write_detections_csv(path: Path, pages: Sequence[dict]) -> None:
                         "members": " ".join(detection["members"]),
                     }
                 )
+
+
+def detection_frequencies(pages: Sequence[dict]) -> dict[str, int]:
+    frequencies: dict[str, int] = {}
+    for page in pages:
+        for detection in page.get("detections", []):
+            group_id = detection["groupId"]
+            frequencies[group_id] = frequencies.get(group_id, 0) + 1
+    return frequencies
+
+
+def write_match_report_html(
+    path: Path,
+    *,
+    font_path: Path,
+    groups_payload: dict,
+    pages: Sequence[dict],
+    match_threshold: float,
+    shape_threshold: float,
+) -> None:
+    """Write a self-contained HTML report for shape families and match counts."""
+
+    frequencies = detection_frequencies(pages)
+    total_detections = sum(frequencies.values())
+    group_rows = []
+    groups = groups_payload["groups"]
+    sorted_groups = sorted(groups, key=lambda group: (-frequencies.get(group["id"], 0), group["id"]))
+    max_frequency = max(frequencies.values(), default=1)
+
+    for group in sorted_groups:
+        frequency = frequencies.get(group["id"], 0)
+        representative = group["representative"]
+        representative_member = next(
+            (member for member in group["members"] if member["codepoint"] == representative),
+            group["members"][0],
+        )
+        codepoint = int(representative_member["codepoint"].replace("U+", ""), 16)
+        glyph_b64 = render_glyph_png_b64(codepoint, font_path)
+        glyph_html = (
+            f'<img src="data:image/png;base64,{glyph_b64}" alt="{html.escape(representative)}"/>'
+            if glyph_b64
+            else "-"
+        )
+
+        member_rows = []
+        family_names: list[str] = []
+        for member in group["members"]:
+            names = member.get("icons") or []
+            name_text = ", ".join(names) if names else "-"
+            if names:
+                family_names.extend(names)
+            member_rows.append(
+                "<tr>"
+                f"<td>{html.escape(member['codepoint'])}</td>"
+                f"<td>{html.escape(member.get('glyphName') or '-')}</td>"
+                f"<td>{html.escape(name_text)}</td>"
+                "</tr>"
+            )
+        family_name_text = ", ".join(dict.fromkeys(family_names)) if family_names else "-"
+        bar_width = round((frequency / max_frequency) * 180) if max_frequency else 0
+        group_rows.append(
+            "<tr>"
+            f"<td class=\"glyph\">{glyph_html}</td>"
+            f"<td class=\"group\"><strong>{html.escape(group['id'])}</strong>"
+            f"<div class=\"muted\">rep {html.escape(representative)}</div></td>"
+            f"<td class=\"names\">{html.escape(family_name_text)}</td>"
+            f"<td class=\"members\"><details><summary>{len(group['members'])} codepoint"
+            f"{'' if len(group['members']) == 1 else 's'}</summary>"
+            "<table class=\"nested\"><thead><tr><th>Unicode</th><th>Glyph name</th><th>App name</th></tr></thead>"
+            f"<tbody>{''.join(member_rows)}</tbody></table></details></td>"
+            f"<td class=\"freq\"><span class=\"count\">{frequency}</span>"
+            f"<span class=\"bar\"><span style=\"width:{bar_width}px\"></span></span></td>"
+            "</tr>"
+        )
+
+    page_count = len(pages)
+    html_text = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Psaltica Font Shape Match Report</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 24px; color: #222; }}
+  h1 {{ font-size: 22px; margin: 0 0 6px; }}
+  .summary {{ color: #555; margin: 0 0 18px; }}
+  table {{ border-collapse: collapse; width: 100%; }}
+  th {{ text-align: left; font-size: 12px; color: #555; border-bottom: 1px solid #ccc; padding: 8px; }}
+  td {{ border-bottom: 1px solid #eee; padding: 8px; vertical-align: top; }}
+  .glyph {{ width: 88px; text-align: center; }}
+  .glyph img {{ width: 72px; height: 72px; image-rendering: pixelated; border: 1px solid #ddd; background: white; }}
+  .group {{ width: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }}
+  .muted {{ color: #777; font-size: 11px; margin-top: 4px; }}
+  .names {{ width: 220px; font-size: 13px; }}
+  .members summary {{ cursor: pointer; color: #205c8a; }}
+  .nested {{ margin-top: 8px; width: auto; min-width: 520px; }}
+  .nested th, .nested td {{ padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 12px; }}
+  .nested td:first-child {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+  .freq {{ width: 250px; white-space: nowrap; }}
+  .count {{ display: inline-block; min-width: 44px; text-align: right; margin-right: 10px; font-variant-numeric: tabular-nums; }}
+  .bar {{ display: inline-block; width: 180px; height: 10px; background: #eee; vertical-align: middle; }}
+  .bar span {{ display: block; height: 10px; background: #4577a8; }}
+</style>
+</head>
+<body>
+<h1>Psaltica Font Shape Match Report</h1>
+<p class="summary">
+  {len(groups)} shape families &middot; {total_detections} detections &middot; {page_count} page{"s" if page_count != 1 else ""} &middot;
+  shape threshold {shape_threshold} &middot; match threshold {match_threshold}
+</p>
+<table>
+<thead>
+  <tr><th>Glyph matched</th><th>Family</th><th>App name</th><th>Unicode locations in family</th><th>Frequency</th></tr>
+</thead>
+<tbody>
+  {''.join(group_rows)}
+</tbody>
+</table>
+</body>
+</html>
+"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(html_text, encoding="utf-8")
