@@ -5,7 +5,10 @@ import numpy as np
 from psaltica_ocr.font_shape_matching import (
     GlyphShape,
     MatchDetection,
+    group_icon_names,
+    group_priorities_from_icons,
     group_similar_shapes,
+    group_thresholds_from_icons,
     detection_frequencies,
     non_max_suppression,
     normalize_shape,
@@ -13,6 +16,7 @@ from psaltica_ocr.font_shape_matching import (
     shape_similarity,
     write_match_report_html,
 )
+from tools.match_font_shape_groups import apply_icon_size_filters
 
 
 def test_normalize_shape_removes_position_offsets() -> None:
@@ -73,6 +77,51 @@ def test_detection_frequencies() -> None:
     ]
 
     assert detection_frequencies(pages) == {"shape_0001": 2, "shape_0002": 1}
+
+
+def test_group_thresholds_and_priorities_from_app_names() -> None:
+    names = {
+        "shape_a": ["Apostrofos"],
+        "shape_i": ["Isson2"],
+        "shape_o": ["Oligon"],
+        "shape_other": ["Apli"],
+    }
+
+    assert group_thresholds_from_icons(names, default_threshold=0.75) == {
+        "shape_a": 0.65,
+        "shape_i": 0.75,
+        "shape_o": 0.78,
+        "shape_other": 0.75,
+    }
+    assert group_priorities_from_icons(names) == {
+        "shape_a": 35,
+        "shape_i": 40,
+        "shape_o": 5,
+        "shape_other": 10,
+    }
+
+
+def test_group_icon_names_collects_unique_app_names() -> None:
+    groups = [type("Group", (), {"id": "shape_1", "members": ("U+E001", "U+E002")})()]
+    icons = {0xE001: ["Oligon"], 0xE002: ["Oligon", "Isson2"]}
+
+    assert group_icon_names(groups, {"U+E001": 0xE001, "U+E002": 0xE002}, icons) == {
+        "shape_1": ["Oligon", "Isson2"]
+    }
+
+
+def test_apply_icon_size_filters_keeps_only_largest_oligon_template() -> None:
+    templates = {
+        "shape_o": [(7.0, "small"), (13.0, "large")],
+        "shape_i": [(7.0, "small"), (13.0, "large")],
+    }
+
+    apply_icon_size_filters(templates, {"shape_o": ["Oligon"], "shape_i": ["Isson2"]}, max_size=13.0)
+
+    assert templates == {
+        "shape_o": [(13.0, "large")],
+        "shape_i": [(7.0, "small"), (13.0, "large")],
+    }
 
 
 def test_write_match_report_html_includes_members_names_and_frequency(tmp_path) -> None:

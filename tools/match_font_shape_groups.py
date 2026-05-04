@@ -22,9 +22,13 @@ from pathlib import Path
 import cv2
 
 from psaltica_ocr.font_shape_matching import (
+    DEFAULT_ICON_THRESHOLDS,
     build_glyph_shapes,
     build_group_templates,
+    group_icon_names,
+    group_priorities_from_icons,
     group_similar_shapes,
+    group_thresholds_from_icons,
     groups_to_jsonable,
     load_icon_map,
     match_shape_groups_on_page,
@@ -56,8 +60,16 @@ def parse_args() -> argparse.Namespace:
                         help="Similarity threshold for grouping same-shape glyphs")
     parser.add_argument("--match-threshold", type=float, default=DEFAULT_MATCH_THRESHOLD,
                         help="Template-match score threshold")
+    parser.add_argument("--icon-threshold", action="append", default=[],
+                        help="Per-app-name threshold override, e.g. Oligon=0.88. Repeatable.")
+    parser.add_argument("--no-icon-thresholds", action="store_true",
+                        help="Disable built-in per-app thresholds for Apostrofos, Isson2, and Oligon.")
     parser.add_argument("--nms-iou", type=float, default=NMS_IOU_THRESHOLD,
                         help="NMS IoU threshold")
+    parser.add_argument("--score-only-nms", action="store_true",
+                        help="Sort NMS by score only instead of app-name priority.")
+    parser.add_argument("--no-icon-size-filters", action="store_true",
+                        help="Disable built-in app-name template-size filters, currently used for Oligon.")
     parser.add_argument("--canvas", type=int, default=48,
                         help="Normalized shape canvas size")
     parser.add_argument("--render-px", type=int, default=128,
@@ -70,6 +82,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-csv", type=Path, default=Path("data/annotations/font_shape_matches.csv"))
     parser.add_argument("--output-html", type=Path, default=Path("data/annotations/font_shape_matches.html"))
     return parser.parse_args()
+
+
+def parse_icon_thresholds(values: list[str]) -> dict[str, float]:
+    thresholds: dict[str, float] = {}
+    for value in values:
+        if "=" not in value:
+            raise SystemExit(f"Invalid --icon-threshold value {value!r}; expected Name=0.75")
+        name, threshold = value.split("=", 1)
+        thresholds[name] = float(threshold)
+    return thresholds
+
+
+def apply_icon_size_filters(
+    templates: dict[str, list[tuple[float, object]]],
+    names_by_group: dict[str, list[str]],
+    *,
+    max_size: float,
+) -> None:
+    for group_id, names in names_by_group.items():
+        if "Oligon" not in names or group_id not in templates:
+            continue
+        largest = [variant for variant in templates[group_id] if variant[0] == max_size]
+        if largest:
+            templates[group_id] = largest
 
 
 def collect_pages(args: argparse.Namespace) -> list[Path]:
@@ -128,11 +164,22 @@ def main() -> None:
     args.groups_json.write_text(json.dumps(groups_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote groups -> {args.groups_json}")
 
+    names_by_group = group_icon_names(shape_groups, key_to_codepoint, icon_map)
     print(f"Rendering representative templates for sizes: {' '.join(str(size) for size in args.sizes)} pt")
     templates = build_group_templates(shape_groups, key_to_codepoint, args.font, sizes_pt=args.sizes, dpi=args.dpi)
+    if not args.no_icon_size_filters:
+        apply_icon_size_filters(templates, names_by_group, max_size=max(args.sizes))
     print(f"  {len(templates)}/{len(shape_groups)} groups have matchable templates")
 
     group_members = {group.id: group.members for group in shape_groups}
+    icon_thresholds = {} if args.no_icon_thresholds else dict(DEFAULT_ICON_THRESHOLDS)
+    icon_thresholds.update(parse_icon_thresholds(args.icon_threshold))
+    thresholds = group_thresholds_from_icons(
+        names_by_group,
+        default_threshold=args.match_threshold,
+        icon_thresholds=icon_thresholds,
+    )
+    priorities = {} if args.score_only_nms else group_priorities_from_icons(names_by_group)
     page_payloads = []
     for index, page in enumerate(pages, 1):
         image = cv2.imread(str(page), cv2.IMREAD_GRAYSCALE)
@@ -145,6 +192,8 @@ def main() -> None:
             templates,
             threshold=args.match_threshold,
             iou_threshold=args.nms_iou,
+            thresholds=thresholds,
+            priorities=priorities,
         )
         page_payload = {
             "image": str(page),

@@ -45,6 +45,19 @@ class MatchDetection:
     size_pt: float
 
 
+DEFAULT_ICON_THRESHOLDS: dict[str, float] = {
+    "Apostrofos": 0.65,
+    "Isson2": 0.75,
+    "Oligon": 0.78,
+}
+
+DEFAULT_ICON_PRIORITIES: dict[str, int] = {
+    "Isson2": 40,
+    "Apostrofos": 35,
+    "Oligon": 5,
+}
+
+
 def parse_codepoint_ranges(values: Sequence[str] | None) -> list[tuple[int, int]]:
     if not values:
         return list(NEUME_CODEPOINT_RANGES)
@@ -339,8 +352,12 @@ def match_template_on_page(
     if template.shape[0] > page_gray.shape[0] or template.shape[1] > page_gray.shape[1]:
         return []
     result = cv2.matchTemplate(page_gray, template, cv2.TM_CCOEFF_NORMED)
-    locations = np.where(result >= threshold)
     height, width = template.shape[:2]
+    peak_kernel = max(3, min(width, height) // 3)
+    if peak_kernel % 2 == 0:
+        peak_kernel += 1
+    local_max = cv2.dilate(result, np.ones((peak_kernel, peak_kernel), dtype=np.uint8))
+    locations = np.where((result >= threshold) & (result == local_max))
     return [(int(x), int(y), width, height, float(result[y, x])) for y, x in zip(*locations)]
 
 
@@ -360,8 +377,14 @@ def non_max_suppression(
     detections: Sequence[MatchDetection],
     *,
     iou_threshold: float,
+    priorities: dict[str, int] | None = None,
 ) -> list[MatchDetection]:
-    candidates = sorted(detections, key=lambda item: item.score, reverse=True)
+    priorities = priorities or {}
+    candidates = sorted(
+        detections,
+        key=lambda item: (priorities.get(item.group_id, 10), item.score),
+        reverse=True,
+    )
     kept: list[MatchDetection] = []
     while candidates:
         best = candidates.pop(0)
@@ -377,14 +400,21 @@ def match_shape_groups_on_page(
     *,
     threshold: float,
     iou_threshold: float,
+    thresholds: dict[str, float] | None = None,
+    priorities: dict[str, int] | None = None,
 ) -> list[MatchDetection]:
     _, binary_page = cv2.threshold(page_gray, 200, 255, cv2.THRESH_BINARY)
     group_by_id = {group.id: group for group in groups}
     detections: list[MatchDetection] = []
     for group_id, variants in templates.items():
         group = group_by_id[group_id]
+        group_threshold = (thresholds or {}).get(group_id, threshold)
         for size_pt, template in variants:
-            for x, y, width, height, score in match_template_on_page(binary_page, template, threshold=threshold):
+            for x, y, width, height, score in match_template_on_page(
+                binary_page,
+                template,
+                threshold=group_threshold,
+            ):
                 detections.append(
                     MatchDetection(
                         x=x,
@@ -397,7 +427,50 @@ def match_shape_groups_on_page(
                         size_pt=size_pt,
                     )
                 )
-    return non_max_suppression(detections, iou_threshold=iou_threshold)
+    return non_max_suppression(detections, iou_threshold=iou_threshold, priorities=priorities)
+
+
+def group_icon_names(
+    groups: Sequence[ShapeGroup],
+    key_to_codepoint: dict[str, int],
+    icon_map: dict[int, list[str]],
+) -> dict[str, list[str]]:
+    names_by_group: dict[str, list[str]] = {}
+    for group in groups:
+        names: list[str] = []
+        for key in group.members:
+            for icon in icon_map.get(key_to_codepoint[key], []):
+                if icon not in names:
+                    names.append(icon)
+        names_by_group[group.id] = names
+    return names_by_group
+
+
+def group_thresholds_from_icons(
+    names_by_group: dict[str, list[str]],
+    *,
+    default_threshold: float,
+    icon_thresholds: dict[str, float] | None = None,
+) -> dict[str, float]:
+    icon_thresholds = icon_thresholds or DEFAULT_ICON_THRESHOLDS
+    thresholds: dict[str, float] = {}
+    for group_id, names in names_by_group.items():
+        values = [icon_thresholds[name] for name in names if name in icon_thresholds]
+        thresholds[group_id] = min(values) if values else default_threshold
+    return thresholds
+
+
+def group_priorities_from_icons(
+    names_by_group: dict[str, list[str]],
+    *,
+    icon_priorities: dict[str, int] | None = None,
+) -> dict[str, int]:
+    icon_priorities = icon_priorities or DEFAULT_ICON_PRIORITIES
+    priorities: dict[str, int] = {}
+    for group_id, names in names_by_group.items():
+        values = [icon_priorities[name] for name in names if name in icon_priorities]
+        priorities[group_id] = max(values) if values else 10
+    return priorities
 
 
 def groups_to_jsonable(
