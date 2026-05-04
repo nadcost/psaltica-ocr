@@ -80,6 +80,8 @@ def parse_args() -> argparse.Namespace:
                         help="Min rows with ink; <4 = degenerate bar glyphs (default: 4)")
     parser.add_argument("--sizes", type=float, nargs="+", default=[7.0, 8.0, 9.0],
                         help="Font sizes in pt to render templates at (default: 7 8 9)")
+    parser.add_argument("--families", type=Path, default=Path("data/neume_families.json"),
+                        help="Family map from group_neume_shapes.py; count per family when present")
     parser.add_argument("--output-csv", type=Path, default=Path("data/neume_frequencies.csv"))
     parser.add_argument("--output-html", type=Path, default=Path("data/neume_frequencies.html"))
     parser.add_argument("--no-html", action="store_true")
@@ -143,6 +145,42 @@ def count_page(
 # ---------------------------------------------------------------------------
 # Text report
 # ---------------------------------------------------------------------------
+
+def load_families(families_path: Path) -> list[dict] | None:
+    """Load family definitions from group_neume_shapes.py output, or None."""
+    if not families_path.exists():
+        return None
+    import json
+    return json.loads(families_path.read_text(encoding="utf-8"))
+
+
+def apply_families(
+    counts: dict[str, int],
+    metadata: dict[str, int],
+    families: list[dict],
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Fold per-codepoint counts and metadata into per-family aggregates.
+
+    Returns new counts and metadata keyed by the family representative codepoint.
+    The representative is the first member listed in each family.
+    """
+    # Build codepoint-key → family representative key
+    key_to_rep: dict[str, str] = {}
+    for fam in families:
+        rep = fam["representative"]
+        for key in fam["codepoints"]:
+            key_to_rep[key] = rep
+
+    new_counts: dict[str, int] = defaultdict(int)
+    new_meta: dict[str, int] = {}
+
+    for key, cp in metadata.items():
+        rep = key_to_rep.get(key, key)
+        new_meta[rep] = int(rep[2:], 16)  # codepoint from "U+XXXX"
+        new_counts[rep] += counts.get(key, 0)
+
+    return dict(new_counts), new_meta
+
 
 def load_icon_map(symbol_map_path: Path) -> dict[int, str]:
     """Return {codepoint: icon_name} from symbol_map.json, or {} if unavailable."""
@@ -384,6 +422,12 @@ def main() -> None:
               f"(running total: {sum(totals.values()):,})")
 
     counts = dict(totals)
+
+    families = load_families(args.families)
+    if families:
+        counts, metadata = apply_families(counts, metadata, families)
+        print(f"  Folded into {len(metadata)} families (from {args.families.name})")
+
     print_report(counts, metadata, len(pages), icon_map)
 
     write_csv(args.output_csv, counts, metadata, len(pages), icon_map)
