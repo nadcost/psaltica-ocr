@@ -34,3 +34,4 @@ This writes `data/font_shape_groups.json`, `data/annotations/font_shape_matches.
 
 Tune `--shape-threshold` to control how aggressively glyphs are grouped, and `--match-threshold` to control page-match precision.
 The matcher runs complex shapes first so larger composite glyphs suppress smaller component matches in the same region. It also applies built-in per-app tuning for `Apostrofos`, `Isson2`, and `Oligon`; use `--icon-threshold Name=0.80`, `--score-only-nms`, `--no-complex-first`, or `--no-icon-size-filters` when auditing alternate thresholds.
+Known decorated variants of `OnePlusOneUp` are merged into the same shape family by default; add more with `--family-alias U+AAAA,U+BBBB` or disable built-in aliases with `--no-default-family-aliases`.

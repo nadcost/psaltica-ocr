@@ -57,6 +57,22 @@ DEFAULT_ICON_PRIORITIES: dict[str, int] = {
     "Oligon": 5,
 }
 
+DEFAULT_SHAPE_FAMILY_ALIASES: tuple[tuple[str, ...], ...] = (
+    (
+        "U+004F",
+        "U+004C",
+        "U+006C",
+        "U+0139",
+        "U+013A",
+        "U+013B",
+        "U+013C",
+        "U+013D",
+        "U+013E",
+        "U+014C",
+        "U+0150",
+    ),
+)
+
 
 def parse_codepoint_ranges(values: Sequence[str] | None) -> list[tuple[int, int]]:
     if not values:
@@ -198,6 +214,74 @@ def group_similar_shapes(shapes: Sequence[GlyphShape], *, threshold: float) -> l
     return groups
 
 
+def merge_shape_group_aliases(
+    groups: Sequence[ShapeGroup],
+    aliases: Sequence[Sequence[str]] = DEFAULT_SHAPE_FAMILY_ALIASES,
+) -> list[ShapeGroup]:
+    """Merge explicit codepoint families after shape-similarity grouping.
+
+    Some font codepoints are the same complex base glyph with an embedded gorgon
+    or modifier. Their normalized shapes are intentionally different, but for
+    counting/autolabeling they should be treated as one family. The first
+    codepoint in each alias set is the canonical representative.
+    """
+
+    if not aliases:
+        return list(groups)
+
+    parent = {group.id: group.id for group in groups}
+    group_by_id = {group.id: group for group in groups}
+    key_to_group = {member: group.id for group in groups for member in group.members}
+    canonical_by_root: dict[str, str] = {}
+
+    def find(group_id: str) -> str:
+        while parent[group_id] != group_id:
+            parent[group_id] = parent[parent[group_id]]
+            group_id = parent[group_id]
+        return group_id
+
+    def union(left: str, right: str) -> str:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root != right_root:
+            parent[right_root] = left_root
+        return left_root
+
+    for alias in aliases:
+        present = [key for key in alias if key in key_to_group]
+        if len(present) < 2:
+            continue
+        root = key_to_group[present[0]]
+        for key in present[1:]:
+            root = union(root, key_to_group[key])
+        canonical_by_root[find(root)] = present[0]
+
+    merged_members: dict[str, list[str]] = {}
+    for group in groups:
+        root = find(group.id)
+        merged_members.setdefault(root, [])
+        merged_members[root].extend(group.members)
+
+    merged_groups: list[ShapeGroup] = []
+    for root, members in merged_members.items():
+        unique_members = tuple(sorted(set(members), key=lambda key: int(key.replace("U+", ""), 16)))
+        representative = canonical_by_root.get(root, group_by_id[root].representative)
+        merged_groups.append(ShapeGroup(id=group_by_id[root].id, representative=representative, members=unique_members))
+
+    return _renumber_groups(merged_groups)
+
+
+def _renumber_groups(groups: Sequence[ShapeGroup]) -> list[ShapeGroup]:
+    sorted_groups = sorted(
+        groups,
+        key=lambda group: (-len(group.members), int(group.representative.replace("U+", ""), 16)),
+    )
+    return [
+        ShapeGroup(id=f"shape_{index:04d}", representative=group.representative, members=group.members)
+        for index, group in enumerate(sorted_groups, 1)
+    ]
+
+
 def choose_representative(members: Sequence[GlyphShape]) -> GlyphShape:
     if len(members) == 1:
         return members[0]
@@ -332,12 +416,18 @@ def build_group_templates(
 ) -> dict[str, list[tuple[float, np.ndarray]]]:
     templates: dict[str, list[tuple[float, np.ndarray]]] = {}
     for group in groups:
-        codepoint = key_to_codepoint[group.representative]
         variants: list[tuple[float, np.ndarray]] = []
-        for pt in sizes_pt:
-            template = render_match_template(chr(codepoint), font_path, pt=pt, dpi=dpi)
-            if template is not None and template_is_matchable(template):
-                variants.append((pt, template))
+        seen_shapes: set[tuple[float, bytes, tuple[int, int]]] = set()
+        for key in group.members:
+            codepoint = key_to_codepoint[key]
+            for pt in sizes_pt:
+                template = render_match_template(chr(codepoint), font_path, pt=pt, dpi=dpi)
+                if template is not None and template_is_matchable(template):
+                    fingerprint = (pt, template.tobytes(), template.shape)
+                    if fingerprint in seen_shapes:
+                        continue
+                    seen_shapes.add(fingerprint)
+                    variants.append((pt, template))
         if variants:
             templates[group.id] = variants
     return templates
