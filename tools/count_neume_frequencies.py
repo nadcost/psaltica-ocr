@@ -41,6 +41,7 @@ from psaltica_ocr.template_matching import (
     FONT_PATH,
     MATCH_THRESHOLD,
     NMS_IOU_THRESHOLD,
+    NEUME_CODEPOINT_RANGES,
     build_templates_from_font,
     match_cascade_page,
     render_glyph_b64,
@@ -60,9 +61,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--manifest", type=Path, default=Path("data/pages/manifest.csv"))
     parser.add_argument("--font", type=Path, default=FONT_PATH)
+    parser.add_argument("--symbol-map", type=Path, default=Path("config/symbol_map.json"),
+                        help="Optional symbol map for icon name labels (default: config/symbol_map.json)")
     parser.add_argument("--threshold", type=float, default=MATCH_THRESHOLD)
     parser.add_argument("--min-area", type=int, default=80,
                         help="Min template pixel area; filters whitespace/tiny marks (default: 80)")
+    parser.add_argument("--min-ink", type=float, default=0.04,
+                        help="Min ink fraction per template (default: 0.04)")
+    parser.add_argument("--max-ink", type=float, default=0.55,
+                        help="Max ink fraction; >0.55 = solid fills / thick bars (default: 0.55)")
+    parser.add_argument("--min-shape-var", type=float, default=0.08,
+                        help="Min row-ink std-dev; <0.08 = horizontal line / rectangle (default: 0.08)")
+    parser.add_argument("--min-aspect", type=float, default=0.3,
+                        help="Min width/height ratio; <0.3 = vertical slivers (default: 0.3)")
+    parser.add_argument("--max-aspect", type=float, default=3.5,
+                        help="Max width/height ratio; >3.5 = horizontal bars (default: 3.5)")
+    parser.add_argument("--min-ink-rows", type=int, default=4,
+                        help="Min rows with ink; <4 = degenerate bar glyphs (default: 4)")
     parser.add_argument("--sizes", type=float, nargs="+", default=[7.0, 8.0, 9.0],
                         help="Font sizes in pt to render templates at (default: 7 8 9)")
     parser.add_argument("--output-csv", type=Path, default=Path("data/neume_frequencies.csv"))
@@ -129,10 +144,25 @@ def count_page(
 # Text report
 # ---------------------------------------------------------------------------
 
+def load_icon_map(symbol_map_path: Path) -> dict[int, str]:
+    """Return {codepoint: icon_name} from symbol_map.json, or {} if unavailable."""
+    if not symbol_map_path.exists():
+        return {}
+    import json
+    sm = json.loads(symbol_map_path.read_text(encoding="utf-8"))
+    result: dict[int, str] = {}
+    for entry in sm.get("symbols", []):
+        icon = entry.get("icon", "")
+        for ch in entry.get("insert", ""):
+            result.setdefault(ord(ch), icon)
+    return result
+
+
 def print_report(
     counts: dict[str, int],
     metadata: dict[str, int],
     pages_processed: int,
+    icon_map: dict[int, str] | None = None,
 ) -> None:
     total = sum(counts.values())
     if total == 0:
@@ -142,22 +172,24 @@ def print_report(
     ranked = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
     top_n = ranked[:40]
 
-    print(f"\n{'═' * 68}")
+    print(f"\n{'═' * 75}")
     print(f"  Neume frequency — {pages_processed} pages, {total:,} detections, "
           f"{len(counts)} glyphs detected")
-    print(f"{'═' * 68}")
-    print(f"  {'Codepoint':<12}  {'Count':>7}  {'Per page':>8}  Frequency")
-    print(f"  {'─' * 60}")
+    print(f"{'═' * 75}")
+    print(f"  {'Codepoint':<12}  {'Icon':<24}  {'Count':>7}  {'Per page':>8}  Freq")
+    print(f"  {'─' * 67}")
     for key, n in top_n:
         per_page = n / pages_processed
-        bar = "█" * min(30, max(1, int(n / total * 300)))
-        print(f"  {key:<12}  {n:>7,}  {per_page:>7.1f}/pg  {bar}")
+        bar = "█" * min(20, max(1, int(n / total * 200)))
+        cp = metadata.get(key, 0)
+        icon = (icon_map or {}).get(cp, "")
+        print(f"  {key:<12}  {icon:<24}  {n:>7,}  {per_page:>7.1f}/pg  {bar}")
     if len(ranked) > 40:
         print(f"  … {len(ranked) - 40} more glyphs detected (see HTML/CSV for full list)")
     undetected = len(metadata) - len(counts)
     if undetected:
         print(f"\n  {undetected} glyphs in font not detected on sampled pages")
-    print(f"\n{'═' * 68}\n")
+    print(f"\n{'═' * 75}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +201,7 @@ def write_csv(
     counts: dict[str, int],
     metadata: dict[str, int],
     pages_processed: int,
+    icon_map: dict[int, str] | None = None,
 ) -> None:
     total = sum(counts.values())
     rows = []
@@ -178,6 +211,7 @@ def write_csv(
             "rank": 0,
             "codepoint": key,
             "codepoint_dec": codepoint,
+            "icon": (icon_map or {}).get(codepoint, ""),
             "count": n,
             "per_page": round(n / pages_processed, 3) if pages_processed else 0,
             "pct_of_total": round(n / total * 100, 3) if total else 0,
@@ -189,7 +223,7 @@ def write_csv(
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
-            f, fieldnames=["rank", "codepoint", "codepoint_dec",
+            f, fieldnames=["rank", "codepoint", "codepoint_dec", "icon",
                            "count", "per_page", "pct_of_total"],
         )
         writer.writeheader()
@@ -206,6 +240,7 @@ def write_html(
     metadata: dict[str, int],
     font_path: Path,
     pages_processed: int,
+    icon_map: dict[int, str] | None = None,
 ) -> None:
     total = sum(counts.values())
     if total == 0:
@@ -238,10 +273,13 @@ def write_html(
             f'<img src="data:image/png;base64,{b64}" width="48" height="48" alt="{key}"/>'
             if b64 else '<span class="no-glyph">?</span>'
         )
+        icon = (icon_map or {}).get(codepoint, "")
+        icon_cell = f'<td class="icon">{icon}</td>' if icon else '<td class="icon" style="color:#ccc">—</td>'
         row_html = (
             f'<tr>'
             f'<td class="glyph">{img_html}</td>'
             f'<td class="cp" title="decimal: {codepoint}">{key}</td>'
+            f'{icon_cell}'
             f'<td class="rate">{per_page:.1f}/pg</td>'
             f'<td class="bar-cell">{bar_html(n)}</td>'
             f'</tr>'
@@ -278,6 +316,7 @@ def write_html(
   td {{ padding: 4px 8px; vertical-align: middle; }}
   td.glyph {{ width: 56px; text-align: center; }}
   td.cp {{ width: 100px; font-size: 0.82em; font-family: monospace; color: #555; }}
+  td.icon {{ width: 140px; font-size: 0.82em; color: #333; }}
   td.rate {{ width: 70px; text-align: right; font-size: 0.8em; color: #888; }}
   .bar-wrap {{ display: flex; align-items: center; gap: 8px; }}
   .bar {{ height: 14px; background: #4a90d9; border-radius: 2px; min-width: 2px; }}
@@ -313,12 +352,19 @@ def write_html(
 
 def main() -> None:
     args = parse_args()
+    icon_map = load_icon_map(args.symbol_map)
 
     print(f"Loading font glyphs from {args.font.name}…")
     templates, metadata = build_templates_from_font(
         font_path=args.font,
         sizes_pt=args.sizes,
         min_area=args.min_area,
+        min_ink_frac=args.min_ink,
+        max_ink_frac=args.max_ink,
+        min_shape_variance=args.min_shape_var,
+        min_aspect=args.min_aspect,
+        max_aspect=args.max_aspect,
+        min_ink_rows=args.min_ink_rows,
     )
     print(f"  {len(templates)} glyphs with renderable templates (sizes: {args.sizes} pt)")
 
@@ -338,14 +384,14 @@ def main() -> None:
               f"(running total: {sum(totals.values()):,})")
 
     counts = dict(totals)
-    print_report(counts, metadata, len(pages))
+    print_report(counts, metadata, len(pages), icon_map)
 
-    write_csv(args.output_csv, counts, metadata, len(pages))
+    write_csv(args.output_csv, counts, metadata, len(pages), icon_map)
     print(f"Wrote {args.output_csv}")
 
     if not args.no_html:
         print("Rendering glyph images for HTML report…")
-        write_html(args.output_html, counts, metadata, args.font, len(pages))
+        write_html(args.output_html, counts, metadata, args.font, len(pages), icon_map)
         print(f"Wrote {args.output_html}")
 
 

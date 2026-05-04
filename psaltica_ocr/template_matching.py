@@ -196,11 +196,42 @@ def get_font_codepoints(font_path: Path = FONT_PATH) -> dict[int, str]:
     return dict(cmap)
 
 
+def _template_ink_fraction(tmpl: np.ndarray) -> float:
+    """Fraction of pixels that are ink (value == 0) in a binarized template."""
+    return float(np.mean(tmpl == 0))
+
+
+def _template_shape_variance(tmpl: np.ndarray) -> float:
+    """Std-dev of per-row ink fractions — low = horizontal line / solid rectangle."""
+    row_ink = (tmpl == 0).mean(axis=1).astype(float)
+    return float(row_ink.std())
+
+
+def _template_ink_rows(tmpl: np.ndarray) -> int:
+    """Number of rows that contain at least one ink pixel."""
+    return int(np.any(tmpl == 0, axis=1).sum())
+
+
+# Codepoint ranges covering all neumes in PsalticaPraxisUnified.ttf.
+# Three blocks: printable-ASCII neumes, extended-Latin neumes, PUA neumes.
+NEUME_CODEPOINT_RANGES: list[tuple[int, int]] = [
+    (0x0021, 0x007E),
+    (0x0112, 0x0174),
+    (0xE0D0, 0xE127),
+]
+
+
 def build_templates_from_font(
     font_path: Path = FONT_PATH,
     sizes_pt: list[float] | None = None,
     min_area: int = 80,
-    codepoint_range: tuple[int, int] | None = (0xE000, 0xF8FF),
+    codepoint_ranges: list[tuple[int, int]] | None = None,
+    min_ink_frac: float = 0.04,
+    max_ink_frac: float = 0.55,
+    min_shape_variance: float = 0.08,
+    min_aspect: float = 0.3,
+    max_aspect: float = 3.5,
+    min_ink_rows: int = 4,
 ) -> tuple[dict[str, list[tuple[float, np.ndarray]]], dict[str, int]]:
     """Build templates for every renderable glyph in the font.
 
@@ -209,31 +240,68 @@ def build_templates_from_font(
         codepoints — {hex_key: codepoint} for output metadata
 
     Args:
-        codepoint_range: (lo, hi) inclusive filter; None = all codepoints.
-                         Defaults to the PUA range where Psaltica neumes live.
-        min_area: minimum template pixel area to include (filters whitespace/tiny marks).
-        sizes_pt: font sizes to render; defaults to [7.0, 8.0, 9.0] (fewer than the
-                  default 7 sizes to keep runtime manageable for large glyph sets).
+        codepoint_ranges: list of (lo, hi) inclusive ranges; defaults to
+                          NEUME_CODEPOINT_RANGES (the three blocks that contain
+                          all Psaltica neumes). Pass None for all codepoints.
+        min_area: minimum template pixel area; filters whitespace / tiny marks.
+        min_ink_frac: skip templates with < this fraction of ink pixels (near-blank).
+        max_ink_frac: skip templates with > this fraction of ink pixels (solid fills,
+                      thick horizontal bars that false-positive on staff/text lines).
+        min_shape_variance: skip templates where row-wise ink std-dev is below this
+                            value — catches horizontal lines and solid rectangles that
+                            would match printed staff lines and text baselines.
+        min_aspect: minimum width/height ratio; filters very tall thin slivers (e.g.
+                    a 6×45 template matches every vertical stroke on the page).
+        max_aspect: maximum width/height ratio; filters very wide flat bars that match
+                    horizontal text lines and staff rules.
+        min_ink_rows: minimum number of rows that must contain at least one ink pixel;
+                      filters degenerate glyphs (e.g. 2-row horizontal bars in a large
+                      empty bounding box) that match printed baselines everywhere.
+        sizes_pt: font sizes to render; defaults to [7.0, 8.0, 9.0].
     """
     if sizes_pt is None:
         sizes_pt = [7.0, 8.0, 9.0]
+    if codepoint_ranges is None:
+        codepoint_ranges = NEUME_CODEPOINT_RANGES
+
+    # Build fast lookup set
+    allowed: set[int] | None = None
+    if codepoint_ranges is not None:
+        allowed = set()
+        for lo, hi in codepoint_ranges:
+            for cp in range(lo, hi + 1):
+                allowed.add(cp)
 
     all_codepoints = get_font_codepoints(font_path)
     templates: dict[str, list[tuple[float, np.ndarray]]] = {}
     metadata: dict[str, int] = {}
 
     for codepoint in sorted(all_codepoints):
-        if codepoint_range is not None:
-            lo, hi = codepoint_range
-            if not (lo <= codepoint <= hi):
-                continue
+        if codepoint < 0x20:
+            continue
+        if allowed is not None and codepoint not in allowed:
+            continue
         char = chr(codepoint)
         key = f"U+{codepoint:04X}"
         variants: list[tuple[float, np.ndarray]] = []
         for pt in sizes_pt:
             tmpl = render_template(char, pt)
-            if tmpl is not None and tmpl.shape[0] * tmpl.shape[1] >= min_area:
-                variants.append((pt, tmpl))
+            if tmpl is None:
+                continue
+            if tmpl.shape[0] * tmpl.shape[1] < min_area:
+                continue
+            ink = _template_ink_fraction(tmpl)
+            if not (min_ink_frac <= ink <= max_ink_frac):
+                continue
+            if _template_shape_variance(tmpl) < min_shape_variance:
+                continue
+            if _template_ink_rows(tmpl) < min_ink_rows:
+                continue
+            h, w = tmpl.shape[:2]
+            aspect = w / h if h > 0 else 0
+            if not (min_aspect <= aspect <= max_aspect):
+                continue
+            variants.append((pt, tmpl))
         if variants:
             templates[key] = variants
             metadata[key] = codepoint
