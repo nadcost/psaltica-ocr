@@ -1,0 +1,15 @@
+families:
+  - representative: U+004F
+    name: OnePlusOneUp decorated variants
+    reason: Same complex base glyph with embedded gorgon/modifier variants.
+    members:
+      - U+004C
+      - U+006C
+      - U+0139
+      - U+013A
+      - U+013B
+      - U+013C
+      - U+013D
+      - U+013E
+      - U+014C
+      - U+0150

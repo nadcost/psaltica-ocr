@@ -13,6 +13,7 @@ from typing import Iterable, Sequence
 
 import cv2
 import numpy as np
+import yaml
 from PIL import Image, ImageDraw, ImageFont
 
 from psaltica_ocr.template_matching import DPI, FONT_PATH, NEUME_CODEPOINT_RANGES, get_font_codepoints
@@ -57,21 +58,7 @@ DEFAULT_ICON_PRIORITIES: dict[str, int] = {
     "Oligon": 5,
 }
 
-DEFAULT_SHAPE_FAMILY_ALIASES: tuple[tuple[str, ...], ...] = (
-    (
-        "U+004F",
-        "U+004C",
-        "U+006C",
-        "U+0139",
-        "U+013A",
-        "U+013B",
-        "U+013C",
-        "U+013D",
-        "U+013E",
-        "U+014C",
-        "U+0150",
-    ),
-)
+DEFAULT_SHAPE_FAMILY_ALIASES_PATH = Path("config/shape_family_aliases.yaml")
 
 
 def parse_codepoint_ranges(values: Sequence[str] | None) -> list[tuple[int, int]]:
@@ -90,6 +77,43 @@ def parse_codepoint_ranges(values: Sequence[str] | None) -> list[tuple[int, int]
             raise ValueError(f"Invalid codepoint range: {value}")
         ranges.append((start, end))
     return ranges
+
+
+def normalize_codepoint_key(value: str | int) -> str:
+    if isinstance(value, int):
+        return codepoint_key(value)
+    text = value.strip().upper()
+    if text.startswith("U+"):
+        text = text[2:]
+    if text.startswith("0X"):
+        text = text[2:]
+    if not text:
+        raise ValueError("Empty codepoint")
+    return codepoint_key(int(text, 16))
+
+
+def load_shape_family_aliases(path: Path = DEFAULT_SHAPE_FAMILY_ALIASES_PATH) -> tuple[tuple[str, ...], ...]:
+    """Load configured visual-family aliases.
+
+    Each YAML family stores one canonical representative and its additional
+    codepoint members. The first entry remains the canonical representative.
+    """
+
+    if not path.exists():
+        return ()
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    aliases: list[tuple[str, ...]] = []
+    for index, family in enumerate(payload.get("families", []), 1):
+        representative = family.get("representative")
+        members = family.get("members") or []
+        if not representative or not isinstance(members, list):
+            raise ValueError(f"Invalid family alias #{index} in {path}")
+        alias_members = [normalize_codepoint_key(representative)]
+        alias_members.extend(normalize_codepoint_key(member) for member in members)
+        alias = tuple(dict.fromkeys(alias_members))
+        if len(alias) > 1:
+            aliases.append(alias)
+    return tuple(aliases)
 
 
 def allowed_codepoints(ranges: Iterable[tuple[int, int]] | None) -> set[int] | None:
@@ -216,7 +240,7 @@ def group_similar_shapes(shapes: Sequence[GlyphShape], *, threshold: float) -> l
 
 def merge_shape_group_aliases(
     groups: Sequence[ShapeGroup],
-    aliases: Sequence[Sequence[str]] = DEFAULT_SHAPE_FAMILY_ALIASES,
+    aliases: Sequence[Sequence[str]] | None = None,
 ) -> list[ShapeGroup]:
     """Merge explicit codepoint families after shape-similarity grouping.
 
@@ -226,6 +250,7 @@ def merge_shape_group_aliases(
     codepoint in each alias set is the canonical representative.
     """
 
+    aliases = load_shape_family_aliases() if aliases is None else aliases
     if not aliases:
         return list(groups)
 

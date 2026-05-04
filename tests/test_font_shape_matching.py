@@ -10,6 +10,7 @@ from psaltica_ocr.font_shape_matching import (
     group_similar_shapes,
     group_thresholds_from_icons,
     detection_frequencies,
+    load_shape_family_aliases,
     merge_shape_group_aliases,
     non_max_suppression,
     normalize_shape,
@@ -149,6 +150,23 @@ def test_merge_shape_group_aliases_uses_first_alias_as_representative() -> None:
     merged_by_rep = {group.representative: group for group in merged}
     assert merged_by_rep["U+004F"].members == ("U+004C", "U+004F", "U+006C")
     assert merged_by_rep["U+0031"].members == ("U+0031",)
+
+
+def test_load_shape_family_aliases_normalizes_configured_members(tmp_path) -> None:
+    path = tmp_path / "shape_family_aliases.yaml"
+    path.write_text(
+        """
+families:
+  - representative: 004f
+    members:
+      - U+004C
+      - 0x006c
+      - U+004C
+""",
+        encoding="utf-8",
+    )
+
+    assert load_shape_family_aliases(path) == (("U+004F", "U+004C", "U+006C"),)
 
 
 def test_parse_family_aliases_normalizes_codepoints() -> None:

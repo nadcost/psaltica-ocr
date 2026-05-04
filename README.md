@@ -34,4 +34,12 @@ This writes `data/font_shape_groups.json`, `data/annotations/font_shape_matches.
 
 Tune `--shape-threshold` to control how aggressively glyphs are grouped, and `--match-threshold` to control page-match precision.
 The matcher runs complex shapes first so larger composite glyphs suppress smaller component matches in the same region. It also applies built-in per-app tuning for `Apostrofos`, `Isson2`, and `Oligon`; use `--icon-threshold Name=0.80`, `--score-only-nms`, `--no-complex-first`, or `--no-icon-size-filters` when auditing alternate thresholds.
-Known decorated variants of `OnePlusOneUp` are merged into the same shape family by default; add more with `--family-alias U+AAAA,U+BBBB` or disable built-in aliases with `--no-default-family-aliases`.
+Known decorated variants of `OnePlusOneUp` are merged into the same shape family from `config/shape_family_aliases.yaml`; use `--shape-family-aliases path/to/aliases.yaml`, add one-off aliases with `--family-alias U+AAAA,U+BBBB`, or disable configured aliases with `--no-default-family-aliases`.
+
+To generate review-only suggestions for other decorated/modifier variants:
+
+```bash
+uv run tools/propose_modifier_family_aliases.py
+```
+
+This writes `data/proposed_shape_family_aliases.yaml`; accepted families should be added to `config/shape_family_aliases.yaml`.

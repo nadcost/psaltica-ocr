@@ -23,7 +23,7 @@ import cv2
 
 from psaltica_ocr.font_shape_matching import (
     DEFAULT_ICON_THRESHOLDS,
-    DEFAULT_SHAPE_FAMILY_ALIASES,
+    DEFAULT_SHAPE_FAMILY_ALIASES_PATH,
     build_glyph_shapes,
     build_group_templates,
     group_icon_names,
@@ -31,9 +31,11 @@ from psaltica_ocr.font_shape_matching import (
     group_similar_shapes,
     group_thresholds_from_icons,
     groups_to_jsonable,
+    load_shape_family_aliases,
     load_icon_map,
     match_shape_groups_on_page,
     merge_shape_group_aliases,
+    normalize_codepoint_key,
     parse_codepoint_ranges,
     write_detections_csv,
     write_match_report_html,
@@ -62,8 +64,10 @@ def parse_args() -> argparse.Namespace:
                         help="Similarity threshold for grouping same-shape glyphs")
     parser.add_argument("--family-alias", action="append", default=[],
                         help="Comma-separated codepoints to force into one family; first is representative.")
+    parser.add_argument("--shape-family-aliases", type=Path, default=DEFAULT_SHAPE_FAMILY_ALIASES_PATH,
+                        help="YAML file of default visual-family aliases.")
     parser.add_argument("--no-default-family-aliases", action="store_true",
-                        help="Disable built-in aliases for decorated composite variants.")
+                        help="Disable configured aliases for decorated composite variants.")
     parser.add_argument("--match-threshold", type=float, default=DEFAULT_MATCH_THRESHOLD,
                         help="Template-match score threshold")
     parser.add_argument("--icon-threshold", action="append", default=[],
@@ -110,9 +114,7 @@ def parse_family_aliases(values: list[str]) -> list[tuple[str, ...]]:
             text = raw_member.strip().upper()
             if not text:
                 continue
-            if not text.startswith("U+"):
-                text = f"U+{text}"
-            members.append(text)
+            members.append(normalize_codepoint_key(text))
         if len(members) < 2:
             raise SystemExit(f"Invalid --family-alias value {value!r}; expected at least two codepoints")
         aliases.append(tuple(members))
@@ -173,7 +175,7 @@ def main() -> None:
 
     print(f"Grouping {len(shapes)} glyphs by shape at threshold {args.shape_threshold}")
     shape_groups = group_similar_shapes(shapes, threshold=args.shape_threshold)
-    aliases = [] if args.no_default_family_aliases else list(DEFAULT_SHAPE_FAMILY_ALIASES)
+    aliases = [] if args.no_default_family_aliases else list(load_shape_family_aliases(args.shape_family_aliases))
     aliases.extend(parse_family_aliases(args.family_alias))
     shape_groups = merge_shape_group_aliases(shape_groups, aliases)
     multi_member = sum(1 for group in shape_groups if len(group.members) > 1)
