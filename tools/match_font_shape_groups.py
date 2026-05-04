@@ -68,6 +68,8 @@ def parse_args() -> argparse.Namespace:
                         help="NMS IoU threshold")
     parser.add_argument("--score-only-nms", action="store_true",
                         help="Sort NMS by score only instead of app-name priority.")
+    parser.add_argument("--no-complex-first", action="store_true",
+                        help="Disable larger-template-first cascade NMS.")
     parser.add_argument("--no-icon-size-filters", action="store_true",
                         help="Disable built-in app-name template-size filters, currently used for Oligon.")
     parser.add_argument("--canvas", type=int, default=48,
@@ -194,6 +196,7 @@ def main() -> None:
             iou_threshold=args.nms_iou,
             thresholds=thresholds,
             priorities=priorities,
+            complex_first=not args.no_complex_first,
         )
         page_payload = {
             "image": str(page),

@@ -378,13 +378,21 @@ def non_max_suppression(
     *,
     iou_threshold: float,
     priorities: dict[str, int] | None = None,
+    complex_first: bool = True,
 ) -> list[MatchDetection]:
     priorities = priorities or {}
-    candidates = sorted(
-        detections,
-        key=lambda item: (priorities.get(item.group_id, 10), item.score),
-        reverse=True,
-    )
+    if complex_first:
+        candidates = sorted(
+            detections,
+            key=lambda item: (item.width * item.height, priorities.get(item.group_id, 10), item.score),
+            reverse=True,
+        )
+    else:
+        candidates = sorted(
+            detections,
+            key=lambda item: (priorities.get(item.group_id, 10), item.score),
+            reverse=True,
+        )
     kept: list[MatchDetection] = []
     while candidates:
         best = candidates.pop(0)
@@ -402,6 +410,7 @@ def match_shape_groups_on_page(
     iou_threshold: float,
     thresholds: dict[str, float] | None = None,
     priorities: dict[str, int] | None = None,
+    complex_first: bool = True,
 ) -> list[MatchDetection]:
     _, binary_page = cv2.threshold(page_gray, 200, 255, cv2.THRESH_BINARY)
     group_by_id = {group.id: group for group in groups}
@@ -427,7 +436,12 @@ def match_shape_groups_on_page(
                         size_pt=size_pt,
                     )
                 )
-    return non_max_suppression(detections, iou_threshold=iou_threshold, priorities=priorities)
+    return non_max_suppression(
+        detections,
+        iou_threshold=iou_threshold,
+        priorities=priorities,
+        complex_first=complex_first,
+    )
 
 
 def group_icon_names(

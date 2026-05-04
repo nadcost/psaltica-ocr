@@ -61,9 +61,20 @@ def test_non_max_suppression_keeps_best_overlapping_detection() -> None:
         MatchDetection(80, 80, 20, 20, 0.70, "shape_0003", "U+E003", 8.0),
     ]
 
-    kept = non_max_suppression(detections, iou_threshold=0.3)
+    kept = non_max_suppression(detections, iou_threshold=0.3, complex_first=False)
 
     assert [detection.group_id for detection in kept] == ["shape_0002", "shape_0003"]
+
+
+def test_non_max_suppression_prefers_larger_complex_match() -> None:
+    detections = [
+        MatchDetection(10, 10, 20, 20, 0.99, "small_part", "U+E001", 8.0),
+        MatchDetection(8, 8, 36, 24, 0.80, "complex", "U+E002", 8.0),
+    ]
+
+    kept = non_max_suppression(detections, iou_threshold=0.2)
+
+    assert [detection.group_id for detection in kept] == ["complex"]
 
 
 def test_parse_codepoint_ranges() -> None:
