@@ -40,6 +40,8 @@ def parse_args() -> argparse.Namespace:
         help="Inclusive hex range, e.g. E0D0-E127. Repeatable. Default: Psaltica neume ranges.",
     )
     parser.add_argument("--shape-threshold", type=float, default=0.86)
+    parser.add_argument("--no-mirror-family-grouping", action="store_true",
+                        help="Do not group horizontally flipped glyphs into the same visual family.")
     parser.add_argument("--min-similarity", type=float, default=0.45)
     parser.add_argument("--canvas", type=int, default=48)
     parser.add_argument("--render-px", type=int, default=128)
@@ -60,8 +62,8 @@ def _ink_fraction(image: np.ndarray) -> float:
 
 
 def _score_decorated_candidate(candidate: GlyphShape, base: GlyphShape) -> dict[str, float]:
-    full = shape_similarity(candidate.normalized, base.normalized)
-    central = shape_similarity(_center_band(candidate.normalized), _center_band(base.normalized))
+    full = shape_similarity(candidate.normalized, base.normalized, allow_mirror=True)
+    central = shape_similarity(_center_band(candidate.normalized), _center_band(base.normalized), allow_mirror=True)
     candidate_ink = _ink_fraction(candidate.normalized)
     base_ink = _ink_fraction(base.normalized)
     if base_ink <= 0:
@@ -149,7 +151,11 @@ def main() -> None:
         canvas=args.canvas,
         render_px=args.render_px,
     )
-    shape_groups = group_similar_shapes(shapes, threshold=args.shape_threshold)
+    shape_groups = group_similar_shapes(
+        shapes,
+        threshold=args.shape_threshold,
+        allow_mirror=not args.no_mirror_family_grouping,
+    )
     shape_groups = merge_shape_group_aliases(shape_groups, load_shape_family_aliases(args.shape_family_aliases))
     proposals = propose_aliases(
         shapes,
@@ -165,6 +171,7 @@ def main() -> None:
             "symbolMap": str(args.symbol_map),
             "shapeFamilyAliases": str(args.shape_family_aliases),
             "shapeThreshold": args.shape_threshold,
+            "mirrorFamilyGrouping": not args.no_mirror_family_grouping,
             "minSimilarity": args.min_similarity,
         },
         "proposals": proposals,

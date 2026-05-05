@@ -56,6 +56,33 @@ def test_group_similar_shapes_groups_by_normalized_ink_shape() -> None:
     assert ("U+E003",) in member_sets
 
 
+def test_shape_similarity_can_compare_horizontal_flip() -> None:
+    original = np.full((24, 24), 255, dtype=np.uint8)
+    original[4:20, 5:9] = 0
+    original[16:20, 5:18] = 0
+    flipped = np.fliplr(original)
+
+    assert shape_similarity(original, flipped) < 0.5
+    assert shape_similarity(original, flipped, allow_mirror=True) > 0.999
+
+
+def test_group_similar_shapes_groups_horizontal_flips_by_default() -> None:
+    original = np.full((24, 24), 255, dtype=np.uint8)
+    original[4:20, 5:9] = 0
+    original[16:20, 5:18] = 0
+    flipped = np.fliplr(original)
+
+    groups = group_similar_shapes(
+        [
+            GlyphShape("U+E010", 0xE010, "left.form", original),
+            GlyphShape("U+E011", 0xE011, "right.form", flipped),
+        ],
+        threshold=0.95,
+    )
+
+    assert [group.members for group in groups] == [("U+E010", "U+E011")]
+
+
 def test_non_max_suppression_keeps_best_overlapping_detection() -> None:
     detections = [
         MatchDetection(10, 10, 20, 20, 0.80, "shape_0001", "U+E001", 8.0),

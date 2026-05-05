@@ -62,6 +62,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--shape-threshold", type=float, default=0.86,
                         help="Similarity threshold for grouping same-shape glyphs")
+    parser.add_argument("--no-mirror-family-grouping", action="store_true",
+                        help="Do not group horizontally flipped glyphs into the same visual family.")
     parser.add_argument("--family-alias", action="append", default=[],
                         help="Comma-separated codepoints to force into one family; first is representative.")
     parser.add_argument("--shape-family-aliases", type=Path, default=DEFAULT_SHAPE_FAMILY_ALIASES_PATH,
@@ -174,7 +176,11 @@ def main() -> None:
         raise SystemExit("No renderable glyphs found for the requested codepoint ranges.")
 
     print(f"Grouping {len(shapes)} glyphs by shape at threshold {args.shape_threshold}")
-    shape_groups = group_similar_shapes(shapes, threshold=args.shape_threshold)
+    shape_groups = group_similar_shapes(
+        shapes,
+        threshold=args.shape_threshold,
+        allow_mirror=not args.no_mirror_family_grouping,
+    )
     aliases = [] if args.no_default_family_aliases else list(load_shape_family_aliases(args.shape_family_aliases))
     aliases.extend(parse_family_aliases(args.family_alias))
     shape_groups = merge_shape_group_aliases(shape_groups, aliases)
@@ -185,6 +191,7 @@ def main() -> None:
     groups_payload = {
         "font": str(args.font),
         "shapeThreshold": args.shape_threshold,
+        "mirrorFamilyGrouping": not args.no_mirror_family_grouping,
         "canvas": args.canvas,
         "renderPx": args.render_px,
         "codepointRanges": [[start, end] for start, end in ranges],
@@ -242,6 +249,7 @@ def main() -> None:
         "font": str(args.font),
         "groupsJson": str(args.groups_json),
         "shapeThreshold": args.shape_threshold,
+        "mirrorFamilyGrouping": not args.no_mirror_family_grouping,
         "matchThreshold": args.match_threshold,
         "nmsIou": args.nms_iou,
         "sizesPt": args.sizes,

@@ -186,7 +186,7 @@ def normalize_shape(image: np.ndarray, *, canvas: int = 48) -> np.ndarray | None
     return result
 
 
-def shape_similarity(left: np.ndarray, right: np.ndarray) -> float:
+def _shape_similarity(left: np.ndarray, right: np.ndarray) -> float:
     left_ink = (left < 128).astype(np.float32).ravel()
     right_ink = (right < 128).astype(np.float32).ravel()
     left_std = float(left_ink.std())
@@ -198,7 +198,19 @@ def shape_similarity(left: np.ndarray, right: np.ndarray) -> float:
     return float(np.dot(left_centered, right_centered) / (len(left_ink) * left_std * right_std))
 
 
-def group_similar_shapes(shapes: Sequence[GlyphShape], *, threshold: float) -> list[ShapeGroup]:
+def shape_similarity(left: np.ndarray, right: np.ndarray, *, allow_mirror: bool = False) -> float:
+    score = _shape_similarity(left, right)
+    if not allow_mirror:
+        return score
+    return max(score, _shape_similarity(np.fliplr(left), right))
+
+
+def group_similar_shapes(
+    shapes: Sequence[GlyphShape],
+    *,
+    threshold: float,
+    allow_mirror: bool = True,
+) -> list[ShapeGroup]:
     """Group glyphs by connected components in the similarity graph."""
 
     parent = list(range(len(shapes)))
@@ -217,7 +229,14 @@ def group_similar_shapes(shapes: Sequence[GlyphShape], *, threshold: float) -> l
 
     for left_index in range(len(shapes)):
         for right_index in range(left_index + 1, len(shapes)):
-            if shape_similarity(shapes[left_index].normalized, shapes[right_index].normalized) >= threshold:
+            if (
+                shape_similarity(
+                    shapes[left_index].normalized,
+                    shapes[right_index].normalized,
+                    allow_mirror=allow_mirror,
+                )
+                >= threshold
+            ):
                 union(left_index, right_index)
 
     grouped: dict[int, list[GlyphShape]] = {}
