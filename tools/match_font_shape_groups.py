@@ -24,6 +24,7 @@ import cv2
 from psaltica_ocr.font_shape_matching import (
     DEFAULT_ICON_THRESHOLDS,
     DEFAULT_SHAPE_FAMILY_ALIASES_PATH,
+    ShapeGroup,
     build_glyph_shapes,
     build_group_templates,
     group_icon_names,
@@ -130,11 +131,32 @@ def apply_icon_size_filters(
     max_size: float,
 ) -> None:
     for group_id, names in names_by_group.items():
-        if "Oligon" not in names or group_id not in templates:
+        if group_id not in templates:
+            continue
+        if "Oligon" not in names and "OnePlusOneUp" not in names:
             continue
         largest = [variant for variant in templates[group_id] if variant[0] == max_size]
         if largest:
             templates[group_id] = largest
+
+
+def template_source_groups(
+    groups: list[ShapeGroup],
+    names_by_group: dict[str, list[str]],
+) -> list[ShapeGroup]:
+    source_groups: list[ShapeGroup] = []
+    for group in groups:
+        if "OnePlusOneUp" in names_by_group.get(group.id, []):
+            source_groups.append(
+                ShapeGroup(
+                    id=group.id,
+                    representative=group.representative,
+                    members=(group.representative,),
+                )
+            )
+        else:
+            source_groups.append(group)
+    return source_groups
 
 
 def collect_pages(args: argparse.Namespace) -> list[Path]:
@@ -203,7 +225,13 @@ def main() -> None:
 
     names_by_group = group_icon_names(shape_groups, key_to_codepoint, icon_map)
     print(f"Rendering representative templates for sizes: {' '.join(str(size) for size in args.sizes)} pt")
-    templates = build_group_templates(shape_groups, key_to_codepoint, args.font, sizes_pt=args.sizes, dpi=args.dpi)
+    templates = build_group_templates(
+        template_source_groups(shape_groups, names_by_group),
+        key_to_codepoint,
+        args.font,
+        sizes_pt=args.sizes,
+        dpi=args.dpi,
+    )
     if not args.no_icon_size_filters:
         apply_icon_size_filters(templates, names_by_group, max_size=max(args.sizes))
     print(f"  {len(templates)}/{len(shape_groups)} groups have matchable templates")

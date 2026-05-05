@@ -56,6 +56,7 @@ DEFAULT_ICON_THRESHOLDS: dict[str, float] = {
 DEFAULT_ICON_PRIORITIES: dict[str, int] = {
     "Isson2": 40,
     "Apostrofos": 35,
+    "OnePlusOneUp": 50,
     "Oligon": 5,
 }
 
@@ -519,7 +520,12 @@ def non_max_suppression(
     if complex_first:
         candidates = sorted(
             detections,
-            key=lambda item: (item.width * item.height, priorities.get(item.group_id, 10), item.score),
+            key=lambda item: (
+                priorities.get(item.group_id, 10) >= 50,
+                item.width * item.height,
+                priorities.get(item.group_id, 10),
+                item.score,
+            ),
             reverse=True,
         )
     else:

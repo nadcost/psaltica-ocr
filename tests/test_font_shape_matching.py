@@ -5,6 +5,7 @@ import numpy as np
 from psaltica_ocr.font_shape_matching import (
     GlyphShape,
     MatchDetection,
+    ShapeGroup,
     group_icon_names,
     group_priorities_from_icons,
     group_similar_shapes,
@@ -18,7 +19,7 @@ from psaltica_ocr.font_shape_matching import (
     shape_similarity,
     write_match_report_html,
 )
-from tools.match_font_shape_groups import apply_icon_size_filters, parse_family_aliases
+from tools.match_font_shape_groups import apply_icon_size_filters, parse_family_aliases, template_source_groups
 
 
 def test_normalize_shape_removes_position_offsets() -> None:
@@ -106,6 +107,21 @@ def test_non_max_suppression_prefers_larger_complex_match() -> None:
     assert [detection.group_id for detection in kept] == ["complex"]
 
 
+def test_non_max_suppression_protects_high_priority_group() -> None:
+    detections = [
+        MatchDetection(10, 10, 81, 62, 0.66, "one_plus", "U+004F", 13.0),
+        MatchDetection(9, 8, 83, 66, 0.76, "plus_three", "U+0033", 13.0),
+    ]
+
+    kept = non_max_suppression(
+        detections,
+        iou_threshold=0.3,
+        priorities={"one_plus": 50, "plus_three": 10},
+    )
+
+    assert [detection.group_id for detection in kept] == ["one_plus"]
+
+
 def test_parse_codepoint_ranges() -> None:
     assert parse_codepoint_ranges(["E0D0-E0D2", "U+0174"]) == [(0xE0D0, 0xE0D2), (0x0174, 0x0174)]
 
@@ -139,7 +155,7 @@ def test_group_thresholds_and_priorities_from_app_names() -> None:
         "shape_a": 35,
         "shape_i": 40,
         "shape_o": 5,
-        "shape_one_plus": 10,
+        "shape_one_plus": 50,
         "shape_other": 10,
     }
 
@@ -156,15 +172,36 @@ def test_group_icon_names_collects_unique_app_names() -> None:
 def test_apply_icon_size_filters_keeps_only_largest_oligon_template() -> None:
     templates = {
         "shape_o": [(7.0, "small"), (13.0, "large")],
+        "shape_one_plus": [(7.0, "small"), (13.0, "large")],
         "shape_i": [(7.0, "small"), (13.0, "large")],
     }
 
-    apply_icon_size_filters(templates, {"shape_o": ["Oligon"], "shape_i": ["Isson2"]}, max_size=13.0)
+    apply_icon_size_filters(
+        templates,
+        {"shape_o": ["Oligon"], "shape_one_plus": ["OnePlusOneUp"], "shape_i": ["Isson2"]},
+        max_size=13.0,
+    )
 
     assert templates == {
         "shape_o": [(13.0, "large")],
+        "shape_one_plus": [(13.0, "large")],
         "shape_i": [(7.0, "small"), (13.0, "large")],
     }
+
+
+def test_template_source_groups_uses_only_one_plus_representative_for_matching() -> None:
+    groups = [
+        ShapeGroup("shape_0001", "U+004F", ("U+004C", "U+004F", "U+0150")),
+        ShapeGroup("shape_0002", "U+0031", ("U+0031", "U+0131")),
+    ]
+
+    source_groups = template_source_groups(
+        groups,
+        {"shape_0001": ["OnePlusOneUp"], "shape_0002": ["Oligon"]},
+    )
+
+    assert source_groups[0].members == ("U+004F",)
+    assert source_groups[1].members == ("U+0031", "U+0131")
 
 
 def test_merge_shape_group_aliases_uses_first_alias_as_representative() -> None:
