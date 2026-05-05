@@ -49,6 +49,7 @@ class MatchDetection:
 DEFAULT_ICON_THRESHOLDS: dict[str, float] = {
     "Apostrofos": 0.65,
     "Isson2": 0.75,
+    "OnePlusOneUp": 0.65,
     "Oligon": 0.78,
 }
 

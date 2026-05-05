@@ -124,6 +124,7 @@ def test_group_thresholds_and_priorities_from_app_names() -> None:
         "shape_a": ["Apostrofos"],
         "shape_i": ["Isson2"],
         "shape_o": ["Oligon"],
+        "shape_one_plus": ["OnePlusOneUp"],
         "shape_other": ["Apli"],
     }
 
@@ -131,12 +132,14 @@ def test_group_thresholds_and_priorities_from_app_names() -> None:
         "shape_a": 0.65,
         "shape_i": 0.75,
         "shape_o": 0.78,
+        "shape_one_plus": 0.65,
         "shape_other": 0.75,
     }
     assert group_priorities_from_icons(names) == {
         "shape_a": 35,
         "shape_i": 40,
         "shape_o": 5,
+        "shape_one_plus": 10,
         "shape_other": 10,
     }
 
