@@ -53,6 +53,8 @@ def parse_args() -> argparse.Namespace:
     page_group = parser.add_mutually_exclusive_group(required=True)
     page_group.add_argument("--pages", nargs="+", type=Path, help="Rendered page image paths")
     page_group.add_argument("--book", help="Book ID under data/pages/<book>/")
+    page_group.add_argument("--all", dest="all_books", action="store_true",
+                            help="Run across all books under data/pages/")
     parser.add_argument("--pages-per-book", type=int, default=0, help="Limit pages for --book; 0 = all")
     parser.add_argument("--font", type=Path, default=FONT_PATH)
     parser.add_argument("--symbol-map", type=Path, default=Path("config/symbol_map.json"))
@@ -162,10 +164,16 @@ def template_source_groups(
 def collect_pages(args: argparse.Namespace) -> list[Path]:
     if args.pages:
         return [page for page in args.pages if page.exists()]
-    book_dir = Path("data/pages") / args.book
-    pages = sorted(book_dir.glob("page_*.png"))
-    if args.pages_per_book:
-        pages = pages[: args.pages_per_book]
+    if args.all_books:
+        book_dirs = sorted(p for p in Path("data/pages").iterdir() if p.is_dir())
+    else:
+        book_dirs = [Path("data/pages") / args.book]
+    pages: list[Path] = []
+    for book_dir in book_dirs:
+        book_pages = sorted(book_dir.glob("page_*.png"))
+        if args.pages_per_book:
+            book_pages = book_pages[: args.pages_per_book]
+        pages.extend(book_pages)
     return pages
 
 

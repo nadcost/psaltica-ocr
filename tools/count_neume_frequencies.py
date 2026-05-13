@@ -45,6 +45,7 @@ from psaltica_ocr.template_matching import (
     build_templates_from_font,
     match_cascade_page,
     render_glyph_b64,
+    to_gradient,
 )
 
 
@@ -78,13 +79,18 @@ def parse_args() -> argparse.Namespace:
                         help="Max width/height ratio; >3.5 = horizontal bars (default: 3.5)")
     parser.add_argument("--min-ink-rows", type=int, default=4,
                         help="Min rows with ink; <4 = degenerate bar glyphs (default: 4)")
-    parser.add_argument("--sizes", type=float, nargs="+", default=[7.0, 8.0, 9.0],
-                        help="Font sizes in pt to render templates at (default: 7 8 9)")
+    parser.add_argument("--sizes", type=float, nargs="+",
+                        default=[7.0, 8.5, 10.0, 11.5, 13.0],
+                        help="Font sizes in pt to render templates at (default: 7 8.5 10 11.5 13)")
     parser.add_argument("--families", type=Path, default=Path("data/neume_families.json"),
                         help="Family map from group_neume_shapes.py; count per family when present")
     parser.add_argument("--output-csv", type=Path, default=Path("data/neume_frequencies.csv"))
     parser.add_argument("--output-html", type=Path, default=Path("data/neume_frequencies.html"))
     parser.add_argument("--no-html", action="store_true")
+    parser.add_argument("--gradient", action="store_true", default=True,
+                        help="Use Sobel edge matching instead of brightness (default: on)")
+    parser.add_argument("--no-gradient", dest="gradient", action="store_false",
+                        help="Disable gradient matching, use raw brightness")
     return parser.parse_args()
 
 
@@ -130,12 +136,15 @@ def count_page(
     image_path: Path,
     templates: dict,
     threshold: float,
+    use_gradient: bool = False,
 ) -> dict[str, int]:
     img = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
     if img is None:
         return {}
     _, img = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY)
-    kept = match_cascade_page(img, templates, threshold, NMS_IOU_THRESHOLD)
+    if use_gradient:
+        img = to_gradient(img)
+    kept = match_cascade_page(img, templates, threshold, NMS_IOU_THRESHOLD, score_only=True)
     counts: dict[str, int] = defaultdict(int)
     for *_, label in kept:
         counts[label] += 1
@@ -403,8 +412,10 @@ def main() -> None:
         min_aspect=args.min_aspect,
         max_aspect=args.max_aspect,
         min_ink_rows=args.min_ink_rows,
+        use_gradient=args.gradient,
     )
-    print(f"  {len(templates)} glyphs with renderable templates (sizes: {args.sizes} pt)")
+    mode = "gradient edge" if args.gradient else "brightness"
+    print(f"  {len(templates)} glyphs with renderable templates (sizes: {args.sizes} pt, mode: {mode})")
 
     pages = collect_pages(args)
     if not pages:
@@ -414,7 +425,7 @@ def main() -> None:
     totals: dict[str, int] = defaultdict(int)
     width = len(str(len(pages)))
     for i, page_path in enumerate(pages, 1):
-        page_counts = count_page(page_path, templates, args.threshold)
+        page_counts = count_page(page_path, templates, args.threshold, use_gradient=args.gradient)
         for label, n in page_counts.items():
             totals[label] += n
         print(f"  [{i:{width}}/{len(pages)}] {page_path.name}: "

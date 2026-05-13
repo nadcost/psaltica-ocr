@@ -31,6 +31,24 @@ def pt_to_px(pt: float, dpi: int = DPI) -> int:
     return max(4, round(pt * dpi / 72))
 
 
+def to_gradient(arr: np.ndarray) -> np.ndarray:
+    """Convert a binarized image to Sobel gradient magnitude (uint8).
+
+    Ink edges produce strong responses; flat regions (including large empty
+    bounding-box space and horizontal text stripes) produce near-zero responses.
+    Using this on both templates and pages makes diagonal/shaped glyphs like
+    Oligon far more discriminative than brightness-only matching.
+    """
+    inv = (255 - arr).astype(np.float32)
+    gx = cv2.Sobel(inv, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(inv, cv2.CV_32F, 0, 1, ksize=3)
+    mag = np.sqrt(gx ** 2 + gy ** 2)
+    top = float(mag.max())
+    if top > 0:
+        mag = mag * (255.0 / top)
+    return mag.clip(0, 255).astype(np.uint8)
+
+
 def render_template(insert: str, pt: float) -> np.ndarray | None:
     """Render insert string at 4x scale then downsample and binarize."""
     px = pt_to_px(pt)
@@ -150,18 +168,21 @@ def match_cascade_page(
     templates: dict[str, list[tuple[float, np.ndarray]]],
     threshold: float,
     iou_threshold: float = NMS_IOU_THRESHOLD,
+    score_only: bool = False,
 ) -> list[tuple[int, int, int, int, float, str]]:
-    """Cascade matching: composite (larger) glyphs suppress their components.
+    """Run template matching with NMS across all templates.
 
-    All candidate detections are collected then sorted by (template_area desc,
-    score desc) before NMS. This ensures that when a composite glyph and one of
-    its component glyphs overlap at the same print location, the composite wins
-    the NMS race and the component is suppressed — without requiring an explicit
-    composite/simple classification.
+    When score_only=False (default, used by the autolabeler): sort candidates
+    by (template_area desc, score desc) so composite glyphs — which have larger
+    templates — suppress their component glyphs at the same location.
 
-    Falls back naturally: if the composite template scores below threshold at a
-    given location, no composite detection is generated there, and the component
-    template can still fire independently.
+    When score_only=True (used by the frequency counter): sort by score desc
+    only. The best-matching template at each location wins regardless of size.
+    This avoids a fragile edge case where two glyphs with nearly equal template
+    areas (e.g. Isson2 8pt ≈ Oligon 9pt by 16 px²) suppress each other due to
+    the area tie-break rather than a genuine composite/component relationship.
+    Composites still win naturally because they score higher at composite
+    locations.
     """
     # Collect (x, y, w, h, score, label, template_area)
     candidates: list[tuple[int, int, int, int, float, str, int]] = []
@@ -174,9 +195,10 @@ def match_cascade_page(
     if not candidates:
         return []
 
-    # Sort: largest template area first, tie-break by score descending.
-    # Composite glyphs have larger templates and thus win NMS over their components.
-    candidates.sort(key=lambda d: (d[6], d[4]), reverse=True)
+    if score_only:
+        candidates.sort(key=lambda d: d[4], reverse=True)
+    else:
+        candidates.sort(key=lambda d: (d[6], d[4]), reverse=True)
 
     kept: list[tuple[int, int, int, int, float, str]] = []
     while candidates:
@@ -232,6 +254,7 @@ def build_templates_from_font(
     min_aspect: float = 0.3,
     max_aspect: float = 3.5,
     min_ink_rows: int = 4,
+    use_gradient: bool = False,
 ) -> tuple[dict[str, list[tuple[float, np.ndarray]]], dict[str, int]]:
     """Build templates for every renderable glyph in the font.
 
@@ -257,6 +280,11 @@ def build_templates_from_font(
         min_ink_rows: minimum number of rows that must contain at least one ink pixel;
                       filters degenerate glyphs (e.g. 2-row horizontal bars in a large
                       empty bounding box) that match printed baselines everywhere.
+        use_gradient: when True, convert each template to Sobel gradient magnitude
+                      before storing. Quality filters are applied to the original
+                      binarized template; only the stored array is the gradient image.
+                      The page must also be gradient-preprocessed before matching
+                      (pass the result of to_gradient(page) to match_cascade_page).
         sizes_pt: font sizes to render; defaults to [7.0, 8.0, 9.0].
     """
     if sizes_pt is None:
@@ -301,7 +329,7 @@ def build_templates_from_font(
             aspect = w / h if h > 0 else 0
             if not (min_aspect <= aspect <= max_aspect):
                 continue
-            variants.append((pt, tmpl))
+            variants.append((pt, to_gradient(tmpl) if use_gradient else tmpl))
         if variants:
             templates[key] = variants
             metadata[key] = codepoint
