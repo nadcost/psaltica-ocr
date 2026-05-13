@@ -22,6 +22,13 @@ def _draw_chant_row(image: np.ndarray, y1: int, *, x_start: int = 28) -> None:
         image[y1 - 10 : y1 - 4, x : x + 7] = 0
 
 
+def _draw_long_text_row(image: np.ndarray, y1: int) -> None:
+    image[y1 : y1 + 4, 40:100] = 0
+    image[y1 + 16 : y1 + 20, 120:185] = 0
+    for x in [60, 90, 145, 175]:
+        image[y1 - 12 : y1 + 8, x : x + 5] = 0
+
+
 def test_segment_page_pairs_lyrics_only_to_chant_row_above() -> None:
     image = _blank_page()
     _draw_text_like_row(image, 20)
@@ -74,3 +81,49 @@ def test_segment_page_preserves_notation_direction() -> None:
 
     assert layout.notation_direction == "rtl"
     assert layout.chant_rows[0].notation_direction == "rtl"
+
+
+def test_nearby_modifier_bands_merge_into_chant_row() -> None:
+    image = _blank_page()
+    image[54:59, 80:90] = 0
+    image[70:74, 30:85] = 0
+    image[70:74, 100:155] = 0
+    image[70:74, 170:225] = 0
+    image[80:86, 135:150] = 0
+    _draw_text_like_row(image, 106)
+
+    layout = segment_page_layout(image)
+
+    assert len(layout.chant_rows) == 1
+    assert layout.chant_rows[0].bbox.y1 == 54
+    assert layout.chant_rows[0].bbox.y2 == 86
+    assert len(layout.chant_rows[0].lyric_rows) == 1
+    assert layout.unpaired_lyric_rows == ()
+
+
+def test_long_arabic_like_text_is_not_chant_without_notation_context() -> None:
+    image = _blank_page()
+    _draw_long_text_row(image, 70)
+
+    layout = segment_page_layout(image)
+
+    assert layout.chant_rows == ()
+    assert len(layout.non_score_regions) == 1
+
+
+def test_fragmented_lyric_bands_merge_before_pairing() -> None:
+    image = _blank_page()
+    _draw_chant_row(image, 62)
+    image[92:104, 30:95] = 0
+    image[96:110, 115:170] = 0
+    image[112:118, 45:160] = 0
+
+    layout = segment_page_layout(image)
+
+    assert len(layout.chant_rows) == 1
+    assert len(layout.chant_rows[0].lyric_rows) == 1
+    lyric = layout.chant_rows[0].lyric_rows[0]
+    assert lyric.bbox.x1 == 30
+    assert lyric.bbox.x2 == 170
+    assert lyric.bbox.y1 == 92
+    assert lyric.bbox.y2 == 118

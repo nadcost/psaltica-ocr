@@ -123,17 +123,19 @@ class _BandStats:
 
     @property
     def is_chant(self) -> bool:
-        if self.component_count > 90:
+        if self.component_count > 75:
             return False
-        if self.long_component_count >= 3 and self.long_width_sum >= 90:
+        if self.long_component_count >= 3 and self.long_width_sum >= 300:
             return True
-        return self.long_component_count >= 2 and self.long_width_sum >= 150
+        if self.bbox.width < 300 and self.long_component_count >= 3 and self.long_width_sum >= 90:
+            return True
+        return self.long_component_count >= 5 and self.long_width_sum >= 220
 
     @property
     def is_text_like(self) -> bool:
         if self.is_chant:
             return False
-        return self.component_count >= 2 and self.bbox.height >= 4
+        return (self.component_count >= 2 or self.bbox.width >= 40) and self.bbox.height >= 4
 
     @property
     def box_key(self) -> tuple[int, int, int, int]:
@@ -158,6 +160,10 @@ def segment_page_layout(
     bands = _band_stats(binary, min_row_height=min_row_height)
 
     chant_bands, chant_source_boxes = _expanded_chant_bands(bands, height=height)
+    text_bands = _merged_text_bands(
+        [band for band in bands if band.box_key not in chant_source_boxes and band.is_text_like],
+        height=height,
+    )
     chant_rows: list[ChantRow] = []
     unpaired_lyrics: list[LayoutRegion] = []
     non_score: list[LayoutRegion] = []
@@ -165,9 +171,7 @@ def segment_page_layout(
     for index, chant in enumerate(chant_bands):
         next_chant_y = chant_bands[index + 1].bbox.y1 if index + 1 < len(chant_bands) else height
         lyric_rows: list[LayoutRegion] = []
-        for band in bands:
-            if band.box_key in chant_source_boxes:
-                continue
+        for band in text_bands:
             if chant.bbox.y2 <= band.bbox.y1 < next_chant_y and band.is_text_like:
                 lyric_rows.append(_region("lyrics", band))
         chant_rows.append(ChantRow(index, chant.bbox, direction, tuple(lyric_rows)))
@@ -178,9 +182,7 @@ def segment_page_layout(
         for row in chant.lyric_rows
     }
     first_chant_y = chant_bands[0].bbox.y1 if chant_bands else height
-    for band in bands:
-        if band.box_key in chant_source_boxes:
-            continue
+    for band in text_bands:
         region = _region("lyrics" if band.is_text_like else "non_score", band)
         if tuple(region.bbox.to_list()) in paired_band_boxes:
             continue
@@ -209,7 +211,7 @@ def _expanded_chant_bands(
     seeds = [band for band in bands if band.is_chant]
     source_boxes: set[tuple[int, int, int, int]] = set()
     expanded: list[_BandStats] = []
-    max_modifier_gap = max(8, int(height * 0.015))
+    max_modifier_gap = max(16, int(height * 0.015))
 
     for seed in seeds:
         group = [seed]
@@ -217,8 +219,11 @@ def _expanded_chant_bands(
         for candidate in bands:
             if candidate.is_chant:
                 continue
-            gap = seed.bbox.y1 - candidate.bbox.y2
-            if 0 <= gap <= max_modifier_gap and _is_modifier_like(candidate, height=height):
+            above_gap = seed.bbox.y1 - candidate.bbox.y2
+            below_gap = candidate.bbox.y1 - seed.bbox.y2
+            close_above = candidate.bbox.y_center <= seed.bbox.y_center and above_gap <= max_modifier_gap
+            close_below = candidate.bbox.y_center > seed.bbox.y_center and below_gap <= max_modifier_gap
+            if (close_above or close_below) and _is_modifier_like(candidate, height=height):
                 group.append(candidate)
                 source_boxes.add(candidate.box_key)
         expanded.append(_merge_band_group(group))
@@ -227,8 +232,8 @@ def _expanded_chant_bands(
 
 
 def _is_modifier_like(band: _BandStats, *, height: int) -> bool:
-    max_modifier_height = max(8, int(height * 0.06))
-    return band.component_count <= 5 and band.bbox.height <= max_modifier_height
+    max_modifier_height = max(16, int(height * 0.018))
+    return band.component_count <= 8 and band.bbox.height <= max_modifier_height
 
 
 def _merge_band_group(group: list[_BandStats]) -> _BandStats:
@@ -245,6 +250,30 @@ def _merge_band_group(group: list[_BandStats]) -> _BandStats:
         long_width_sum=sum(band.long_width_sum for band in group),
         ink_ratio=float(weighted_ink / area),
     )
+
+
+def _merged_text_bands(bands: list[_BandStats], *, height: int) -> list[_BandStats]:
+    if not bands:
+        return []
+    max_gap = max(10, int(height * 0.01))
+    merged: list[list[_BandStats]] = []
+    for band in sorted(bands, key=lambda item: item.bbox.y1):
+        if not merged:
+            merged.append([band])
+            continue
+        previous_group = merged[-1]
+        previous = _merge_band_group(previous_group)
+        vertical_gap = band.bbox.y1 - previous.bbox.y2
+        if vertical_gap <= max_gap and _horizontal_overlap_ratio(previous.bbox, band.bbox) >= 0.15:
+            previous_group.append(band)
+        else:
+            merged.append([band])
+    return [_merge_band_group(group) for group in merged]
+
+
+def _horizontal_overlap_ratio(a: BoundingBox, b: BoundingBox) -> float:
+    overlap = max(0, min(a.x2, b.x2) - max(a.x1, b.x1))
+    return overlap / max(1, min(a.width, b.width))
 
 
 def chant_mask_from_layout(layout: PageLayout, *, pad_y: int = 8) -> np.ndarray:
