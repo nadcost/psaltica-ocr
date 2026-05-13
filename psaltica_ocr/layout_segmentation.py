@@ -162,9 +162,12 @@ def segment_page_layout(
     bands = _band_stats(binary, min_row_height=min_row_height)
 
     chant_bands, chant_source_boxes = _expanded_chant_bands(bands, height=height)
-    text_bands = _merged_text_bands(
-        [band for band in bands if band.box_key not in chant_source_boxes and band.is_text_like],
-        height=height,
+    text_bands = _filter_text_bands_against_chant(
+        _merged_text_bands(
+            [band for band in bands if band.box_key not in chant_source_boxes and band.is_text_like],
+            height=height,
+        ),
+        chant_bands,
     )
     chant_rows: list[ChantRow] = []
     unpaired_lyrics: list[LayoutRegion] = []
@@ -273,7 +276,7 @@ def _is_isolated_chant_like(band: _BandStats, bands: list[_BandStats], *, height
 
 def _pad_chant_band(band: _BandStats, *, height: int) -> _BandStats:
     top_pad = max(12, int(height * 0.008))
-    bottom_pad = max(8, int(height * 0.004))
+    bottom_pad = max(24, int(height * 0.012))
     bbox = BoundingBox(
         band.bbox.x1,
         max(0, band.bbox.y1 - top_pad),
@@ -308,7 +311,7 @@ def _has_nearby_chant_above(band: _BandStats, chant_bands: list[_BandStats], *, 
 
 
 def _max_lyric_gap(height: int) -> int:
-    return max(95, int(height * 0.055))
+    return max(125, int(height * 0.07))
 
 
 def _merge_band_group(group: list[_BandStats]) -> _BandStats:
@@ -346,6 +349,27 @@ def _merged_text_bands(bands: list[_BandStats], *, height: int) -> list[_BandSta
     return [_merge_band_group(group) for group in merged]
 
 
+def _filter_text_bands_against_chant(bands: list[_BandStats], chant_bands: list[_BandStats]) -> list[_BandStats]:
+    filtered: list[_BandStats] = []
+    for band in bands:
+        if any(_text_is_inside_chant_box(band, chant) for chant in chant_bands):
+            continue
+        filtered.append(band)
+    return filtered
+
+
+def _text_is_inside_chant_box(text: _BandStats, chant: _BandStats) -> bool:
+    y_overlap = max(0, min(text.bbox.y2, chant.bbox.y2) - max(text.bbox.y1, chant.bbox.y1))
+    if y_overlap == 0:
+        return False
+    overlap_ratio = y_overlap / max(1, text.bbox.height)
+    if overlap_ratio < 0.35:
+        return False
+    if text.bbox.y_center <= chant.bbox.y_center:
+        return True
+    return overlap_ratio >= 0.75 and _horizontal_overlap_ratio(text.bbox, chant.bbox) >= 0.2
+
+
 def _horizontal_overlap_ratio(a: BoundingBox, b: BoundingBox) -> float:
     overlap = max(0, min(a.x2, b.x2) - max(a.x1, b.x1))
     return overlap / max(1, min(a.width, b.width))
@@ -358,6 +382,8 @@ def chant_mask_from_layout(layout: PageLayout, *, pad_y: int = 8) -> np.ndarray:
     for row in layout.chant_rows:
         bbox = row.bbox.padded(x=0, y=pad_y, width=layout.width, height=layout.height)
         mask[bbox.y1 : bbox.y2, :] = 255
+        for lyric in row.lyric_rows:
+            mask[lyric.bbox.y1 : lyric.bbox.y2, :] = 0
     return mask
 
 
