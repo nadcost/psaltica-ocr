@@ -126,10 +126,12 @@ class _BandStats:
         if self.component_count > 75:
             return False
         if self.long_component_count >= 3 and self.long_width_sum >= 300:
-            return True
+            if self.component_count <= 18:
+                return True
+            return self.long_component_count / self.component_count >= 0.32
         if self.bbox.width < 300 and self.long_component_count >= 3 and self.long_width_sum >= 90:
             return True
-        return self.long_component_count >= 5 and self.long_width_sum >= 220
+        return self.component_count <= 18 and self.long_component_count >= 5 and self.long_width_sum >= 220
 
     @property
     def is_text_like(self) -> bool:
@@ -172,7 +174,7 @@ def segment_page_layout(
         next_chant_y = chant_bands[index + 1].bbox.y1 if index + 1 < len(chant_bands) else height
         lyric_rows: list[LayoutRegion] = []
         for band in text_bands:
-            if chant.bbox.y2 <= band.bbox.y1 < next_chant_y and band.is_text_like:
+            if _is_lyric_below_chant(band, chant, next_chant_y, height=height):
                 lyric_rows.append(_region("lyrics", band))
         chant_rows.append(ChantRow(index, chant.bbox, direction, tuple(lyric_rows)))
 
@@ -188,7 +190,7 @@ def segment_page_layout(
             continue
         if band.bbox.y1 < first_chant_y:
             non_score.append(_region("non_score", band))
-        elif band.is_text_like and chant_bands:
+        elif band.is_text_like and _has_nearby_chant_above(band, chant_bands, height=height):
             unpaired_lyrics.append(region)
         else:
             non_score.append(_region("non_score", band))
@@ -208,14 +210,20 @@ def _expanded_chant_bands(
     *,
     height: int,
 ) -> tuple[list[_BandStats], set[tuple[int, int, int, int]]]:
-    seeds = [band for band in bands if band.is_chant]
-    source_boxes: set[tuple[int, int, int, int]] = set()
+    strong_seeds = [band for band in bands if band.is_chant]
+    weak_seeds = [
+        band
+        for band in bands
+        if not band.is_chant and _is_isolated_chant_like(band, bands, height=height)
+    ]
+    seed_sources = strong_seeds + weak_seeds
+    seeds = seed_sources
+    source_boxes: set[tuple[int, int, int, int]] = {band.box_key for band in seed_sources}
     expanded: list[_BandStats] = []
-    max_modifier_gap = max(16, int(height * 0.015))
+    max_modifier_gap = max(28, int(height * 0.025))
 
     for seed in seeds:
         group = [seed]
-        source_boxes.add(seed.box_key)
         for candidate in bands:
             if candidate.is_chant:
                 continue
@@ -223,17 +231,84 @@ def _expanded_chant_bands(
             below_gap = candidate.bbox.y1 - seed.bbox.y2
             close_above = candidate.bbox.y_center <= seed.bbox.y_center and above_gap <= max_modifier_gap
             close_below = candidate.bbox.y_center > seed.bbox.y_center and below_gap <= max_modifier_gap
-            if (close_above or close_below) and _is_modifier_like(candidate, height=height):
+            if (
+                (close_above and _is_modifier_like(candidate, height=height))
+                or (close_below and _is_lower_modifier_like(candidate, height=height))
+            ):
                 group.append(candidate)
                 source_boxes.add(candidate.box_key)
-        expanded.append(_merge_band_group(group))
+        expanded.append(_pad_chant_band(_merge_band_group(group), height=height))
 
     return sorted(expanded, key=lambda band: band.bbox.y1), source_boxes
 
 
 def _is_modifier_like(band: _BandStats, *, height: int) -> bool:
-    max_modifier_height = max(16, int(height * 0.018))
-    return band.component_count <= 8 and band.bbox.height <= max_modifier_height
+    max_modifier_height = max(24, int(height * 0.025))
+    return (
+        band.component_count <= 4 or (band.component_count <= 6 and band.long_component_count >= 1)
+    ) and band.bbox.height <= max_modifier_height
+
+
+def _is_lower_modifier_like(band: _BandStats, *, height: int) -> bool:
+    max_modifier_height = max(18, int(height * 0.018))
+    if band.component_count > 5 or band.bbox.height > max_modifier_height:
+        return False
+    return band.long_component_count >= 2 or (band.component_count <= 2 and band.bbox.width <= 120)
+
+
+def _is_isolated_chant_like(band: _BandStats, bands: list[_BandStats], *, height: int) -> bool:
+    if band.long_component_count < 1 or band.long_width_sum < 60:
+        return False
+    if band.component_count > 8 or band.bbox.width > 700:
+        return False
+    max_lyric_gap = _max_lyric_gap(height)
+    return any(
+        candidate is not band
+        and candidate.is_text_like
+        and 8 <= candidate.bbox.y1 - band.bbox.y2 <= max_lyric_gap
+        and _horizontal_overlap_ratio(band.bbox, candidate.bbox) >= 0.05
+        for candidate in bands
+    )
+
+
+def _pad_chant_band(band: _BandStats, *, height: int) -> _BandStats:
+    top_pad = max(12, int(height * 0.008))
+    bottom_pad = max(8, int(height * 0.004))
+    bbox = BoundingBox(
+        band.bbox.x1,
+        max(0, band.bbox.y1 - top_pad),
+        band.bbox.x2,
+        min(height, band.bbox.y2 + bottom_pad),
+    )
+    return _BandStats(
+        bbox=bbox,
+        component_count=band.component_count,
+        long_component_count=band.long_component_count,
+        long_width_sum=band.long_width_sum,
+        ink_ratio=band.ink_ratio,
+    )
+
+
+def _is_lyric_below_chant(band: _BandStats, chant: _BandStats, next_chant_y: int, *, height: int) -> bool:
+    gap = max(0, band.bbox.y1 - chant.bbox.y2)
+    return (
+        band.bbox.y_center > chant.bbox.y_center
+        and gap <= _max_lyric_gap(height)
+        and band.bbox.y1 < next_chant_y
+        and band.is_text_like
+    )
+
+
+def _has_nearby_chant_above(band: _BandStats, chant_bands: list[_BandStats], *, height: int) -> bool:
+    return any(
+        band.bbox.y_center > chant.bbox.y_center
+        and max(0, band.bbox.y1 - chant.bbox.y2) <= _max_lyric_gap(height)
+        for chant in chant_bands
+    )
+
+
+def _max_lyric_gap(height: int) -> int:
+    return max(95, int(height * 0.055))
 
 
 def _merge_band_group(group: list[_BandStats]) -> _BandStats:

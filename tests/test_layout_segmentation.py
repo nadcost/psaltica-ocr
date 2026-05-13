@@ -95,8 +95,8 @@ def test_nearby_modifier_bands_merge_into_chant_row() -> None:
     layout = segment_page_layout(image)
 
     assert len(layout.chant_rows) == 1
-    assert layout.chant_rows[0].bbox.y1 == 54
-    assert layout.chant_rows[0].bbox.y2 == 86
+    assert layout.chant_rows[0].bbox.y1 <= 54
+    assert layout.chant_rows[0].bbox.y2 >= 86
     assert len(layout.chant_rows[0].lyric_rows) == 1
     assert layout.unpaired_lyric_rows == ()
 
@@ -127,3 +127,30 @@ def test_fragmented_lyric_bands_merge_before_pairing() -> None:
     assert lyric.bbox.x2 == 170
     assert lyric.bbox.y1 == 92
     assert lyric.bbox.y2 == 118
+
+
+def test_far_text_below_last_chant_is_non_score_not_lyrics() -> None:
+    image = np.full((500, 240), 255, dtype=np.uint8)
+    _draw_chant_row(image, 62)
+    _draw_text_like_row(image, 92)
+    _draw_text_like_row(image, 420)
+
+    layout = segment_page_layout(image)
+
+    assert len(layout.chant_rows) == 1
+    assert len(layout.chant_rows[0].lyric_rows) == 1
+    assert layout.chant_rows[0].lyric_rows[0].bbox.y1 == 92
+    assert layout.unpaired_lyric_rows == ()
+    assert [region.bbox.y1 for region in layout.non_score_regions] == [420]
+
+
+def test_arabic_like_text_below_chant_pairs_as_lyrics_not_chant() -> None:
+    image = _blank_page()
+    _draw_chant_row(image, 62)
+    _draw_long_text_row(image, 98)
+
+    layout = segment_page_layout(image)
+
+    assert len(layout.chant_rows) == 1
+    assert len(layout.chant_rows[0].lyric_rows) == 1
+    assert layout.chant_rows[0].lyric_rows[0].bbox.y1 == 86
