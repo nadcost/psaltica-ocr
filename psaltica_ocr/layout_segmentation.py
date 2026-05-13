@@ -237,7 +237,7 @@ def _expanded_chant_bands(
                 source_boxes.add(candidate.box_key)
         expanded.append(_pad_chant_band(_merge_band_group(group), height=height))
 
-    return sorted(expanded, key=lambda band: band.bbox.y1), source_boxes
+    return _merge_overlapping_chant_bands(expanded), source_boxes
 
 
 def _is_modifier_like(band: _BandStats, *, height: int) -> bool:
@@ -316,6 +316,29 @@ def _merge_band_group(group: list[_BandStats]) -> _BandStats:
         long_width_sum=sum(band.long_width_sum for band in group),
         ink_ratio=float(weighted_ink / area),
     )
+
+
+def _merge_overlapping_chant_bands(bands: list[_BandStats]) -> list[_BandStats]:
+    if not bands:
+        return []
+    groups: list[list[_BandStats]] = []
+    for band in sorted(bands, key=lambda item: item.bbox.y1):
+        for group in groups:
+            merged = _merge_band_group(group)
+            if _chant_boxes_overlap(merged.bbox, band.bbox):
+                group.append(band)
+                break
+        else:
+            groups.append([band])
+    return sorted((_merge_band_group(group) for group in groups), key=lambda item: item.bbox.y1)
+
+
+def _chant_boxes_overlap(a: BoundingBox, b: BoundingBox) -> bool:
+    y_overlap = max(0, min(a.y2, b.y2) - max(a.y1, b.y1))
+    if y_overlap == 0:
+        return False
+    vertical_ratio = y_overlap / max(1, min(a.height, b.height))
+    return vertical_ratio >= 0.15 and _horizontal_overlap_ratio(a, b) >= 0.05
 
 
 def _merged_text_bands(bands: list[_BandStats], *, height: int) -> list[_BandStats]:

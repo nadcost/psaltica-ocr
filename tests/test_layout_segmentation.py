@@ -168,3 +168,19 @@ def test_long_lyric_band_is_not_absorbed_as_lower_modifier() -> None:
     assert len(layout.chant_rows) == 1
     assert len(layout.chant_rows[0].lyric_rows) == 1
     assert layout.chant_rows[0].lyric_rows[0].bbox.y1 == 82
+
+
+def test_overlapping_chant_fragments_merge_into_one_row() -> None:
+    image = _blank_page()
+    image[54:58, 30:115] = 0
+    image[54:58, 130:220] = 0
+    image[82:86, 50:135] = 0
+    image[82:86, 150:225] = 0
+    _draw_text_like_row(image, 112)
+
+    layout = segment_page_layout(image)
+
+    assert len(layout.chant_rows) == 1
+    assert layout.chant_rows[0].bbox.y1 <= 54
+    assert layout.chant_rows[0].bbox.y2 >= 106
+    assert len(layout.chant_rows[0].lyric_rows) == 1
