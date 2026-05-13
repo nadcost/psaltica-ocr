@@ -365,9 +365,7 @@ def _text_is_inside_chant_box(text: _BandStats, chant: _BandStats) -> bool:
     overlap_ratio = y_overlap / max(1, text.bbox.height)
     if overlap_ratio < 0.35:
         return False
-    if text.bbox.y_center <= chant.bbox.y_center:
-        return True
-    return overlap_ratio >= 0.75 and _horizontal_overlap_ratio(text.bbox, chant.bbox) >= 0.2
+    return text.bbox.y_center <= chant.bbox.y_center
 
 
 def _horizontal_overlap_ratio(a: BoundingBox, b: BoundingBox) -> float:
