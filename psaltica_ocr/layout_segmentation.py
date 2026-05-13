@@ -231,13 +231,8 @@ def _expanded_chant_bands(
             if candidate.is_chant:
                 continue
             above_gap = seed.bbox.y1 - candidate.bbox.y2
-            below_gap = candidate.bbox.y1 - seed.bbox.y2
             close_above = candidate.bbox.y_center <= seed.bbox.y_center and above_gap <= max_modifier_gap
-            close_below = candidate.bbox.y_center > seed.bbox.y_center and below_gap <= max_modifier_gap
-            if (
-                (close_above and _is_modifier_like(candidate, height=height))
-                or (close_below and _is_lower_modifier_like(candidate, height=height))
-            ):
+            if close_above and _is_modifier_like(candidate, height=height):
                 group.append(candidate)
                 source_boxes.add(candidate.box_key)
         expanded.append(_pad_chant_band(_merge_band_group(group), height=height))
@@ -250,13 +245,6 @@ def _is_modifier_like(band: _BandStats, *, height: int) -> bool:
     return (
         band.component_count <= 4 or (band.component_count <= 6 and band.long_component_count >= 1)
     ) and band.bbox.height <= max_modifier_height
-
-
-def _is_lower_modifier_like(band: _BandStats, *, height: int) -> bool:
-    max_modifier_height = max(18, int(height * 0.018))
-    if band.component_count > 5 or band.bbox.height > max_modifier_height:
-        return False
-    return band.long_component_count >= 2 or (band.component_count <= 2 and band.bbox.width <= 120)
 
 
 def _is_isolated_chant_like(band: _BandStats, bands: list[_BandStats], *, height: int) -> bool:
@@ -365,7 +353,10 @@ def _text_is_inside_chant_box(text: _BandStats, chant: _BandStats) -> bool:
     overlap_ratio = y_overlap / max(1, text.bbox.height)
     if overlap_ratio < 0.35:
         return False
-    return text.bbox.y_center <= chant.bbox.y_center
+    if text.bbox.y_center <= chant.bbox.y_center:
+        return True
+    small_lower_fragment = text.bbox.width <= max(45, int(chant.bbox.width * 0.25))
+    return overlap_ratio >= 0.5 and small_lower_fragment
 
 
 def _horizontal_overlap_ratio(a: BoundingBox, b: BoundingBox) -> float:

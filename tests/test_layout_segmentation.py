@@ -154,3 +154,17 @@ def test_arabic_like_text_below_chant_pairs_as_lyrics_not_chant() -> None:
     assert len(layout.chant_rows) == 1
     assert len(layout.chant_rows[0].lyric_rows) == 1
     assert layout.chant_rows[0].lyric_rows[0].bbox.y1 == 86
+
+
+def test_long_lyric_band_is_not_absorbed_as_lower_modifier() -> None:
+    image = _blank_page()
+    _draw_chant_row(image, 62)
+    image[82:88, 40:195] = 0
+    image[94:106, 55:65] = 0
+    image[94:106, 170:180] = 0
+
+    layout = segment_page_layout(image)
+
+    assert len(layout.chant_rows) == 1
+    assert len(layout.chant_rows[0].lyric_rows) == 1
+    assert layout.chant_rows[0].lyric_rows[0].bbox.y1 == 82
