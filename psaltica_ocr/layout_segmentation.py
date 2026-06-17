@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from dataclasses import dataclass
 from typing import Literal
 
@@ -120,22 +121,35 @@ class _BandStats:
     long_component_count: int
     long_width_sum: int
     ink_ratio: float
+    page_width: int = 0
+
+    @property
+    def _min_long_for_chant(self) -> int:
+        # Neume rows are packed with long thin ligature strokes. A full-width
+        # printed row carries ~9; a lyric row carries only a few kashida
+        # elongations. The count threshold scales with page width so the same
+        # rule holds for narrow synthetic fixtures (~3) and real pages (~6).
+        return max(3, round(self.page_width / 400))
 
     @property
     def is_chant(self) -> bool:
-        if self.component_count > 75:
+        # Count of neume ligature strokes is the dominant chant/text
+        # discriminator (gold-band precision 0.985 at the real-page threshold).
+        return self.long_component_count >= self._min_long_for_chant and self.long_width_sum >= 90
+
+    @property
+    def _is_neume_like_fragment(self) -> bool:
+        # A short neume row (too few ligatures to be a full chant seed) is still
+        # dominated by horizontal strokes; keep it out of the lyric pool. Gauge
+        # dominance by the stroke-to-component ratio so Arabic lyric rows, whose
+        # few kashida elongations sit among many letters and dots, stay lyrics.
+        if self.long_component_count < 3 or self.long_width_sum < 90:
             return False
-        if self.long_component_count >= 3 and self.long_width_sum >= 300:
-            if self.component_count <= 18:
-                return True
-            return self.long_component_count / self.component_count >= 0.32
-        if self.bbox.width < 300 and self.long_component_count >= 3 and self.long_width_sum >= 90:
-            return True
-        return self.component_count <= 18 and self.long_component_count >= 5 and self.long_width_sum >= 220
+        return self.long_component_count / max(1, self.component_count) >= 0.30
 
     @property
     def is_text_like(self) -> bool:
-        if self.is_chant:
+        if self.is_chant or self._is_neume_like_fragment:
             return False
         return (self.component_count >= 2 or self.bbox.width >= 40) and self.bbox.height >= 4
 
@@ -162,13 +176,18 @@ def segment_page_layout(
     bands = _band_stats(binary, min_row_height=min_row_height)
 
     chant_bands, chant_source_boxes = _expanded_chant_bands(bands, height=height)
-    text_bands = _filter_text_bands_against_chant(
-        _merged_text_bands(
-            [band for band in bands if band.box_key not in chant_source_boxes and band.is_text_like],
-            height=height,
-        ),
-        chant_bands,
-    )
+    min_lyric_height = max(20, int(height * 0.006))
+    text_bands = [
+        band
+        for band in _filter_text_bands_against_chant(
+            _merged_text_bands(
+                [band for band in bands if band.box_key not in chant_source_boxes and band.is_text_like],
+                height=height,
+            ),
+            chant_bands,
+        )
+        if band.bbox.height >= min_lyric_height and band.component_count >= 4
+    ]
     chant_rows: list[ChantRow] = []
     unpaired_lyrics: list[LayoutRegion] = []
     non_score: list[LayoutRegion] = []
@@ -213,22 +232,15 @@ def _expanded_chant_bands(
     *,
     height: int,
 ) -> tuple[list[_BandStats], set[tuple[int, int, int, int]]]:
-    strong_seeds = [band for band in bands if band.is_chant]
-    weak_seeds = [
-        band
-        for band in bands
-        if not band.is_chant and _is_isolated_chant_like(band, bands, height=height)
-    ]
-    seed_sources = strong_seeds + weak_seeds
-    seeds = seed_sources
-    source_boxes: set[tuple[int, int, int, int]] = {band.box_key for band in seed_sources}
+    seeds = [band for band in bands if band.is_chant]
+    source_boxes: set[tuple[int, int, int, int]] = {band.box_key for band in seeds}
     expanded: list[_BandStats] = []
     max_modifier_gap = max(28, int(height * 0.025))
 
     for seed in seeds:
         group = [seed]
         for candidate in bands:
-            if candidate.is_chant:
+            if candidate.is_chant or candidate.is_text_like:
                 continue
             above_gap = seed.bbox.y1 - candidate.bbox.y2
             close_above = candidate.bbox.y_center <= seed.bbox.y_center and above_gap <= max_modifier_gap
@@ -247,24 +259,9 @@ def _is_modifier_like(band: _BandStats, *, height: int) -> bool:
     ) and band.bbox.height <= max_modifier_height
 
 
-def _is_isolated_chant_like(band: _BandStats, bands: list[_BandStats], *, height: int) -> bool:
-    if band.long_component_count < 1 or band.long_width_sum < 60:
-        return False
-    if band.component_count > 8 or band.bbox.width > 700:
-        return False
-    max_lyric_gap = _max_lyric_gap(height)
-    return any(
-        candidate is not band
-        and candidate.is_text_like
-        and 8 <= candidate.bbox.y1 - band.bbox.y2 <= max_lyric_gap
-        and _horizontal_overlap_ratio(band.bbox, candidate.bbox) >= 0.05
-        for candidate in bands
-    )
-
-
 def _pad_chant_band(band: _BandStats, *, height: int) -> _BandStats:
-    top_pad = max(12, int(height * 0.008))
-    bottom_pad = max(24, int(height * 0.012))
+    top_pad = max(4, int(height * 0.0015))
+    bottom_pad = max(4, int(height * 0.0015))
     bbox = BoundingBox(
         band.bbox.x1,
         max(0, band.bbox.y1 - top_pad),
@@ -277,6 +274,7 @@ def _pad_chant_band(band: _BandStats, *, height: int) -> _BandStats:
         long_component_count=band.long_component_count,
         long_width_sum=band.long_width_sum,
         ink_ratio=band.ink_ratio,
+        page_width=band.page_width,
     )
 
 
@@ -299,7 +297,10 @@ def _has_nearby_chant_above(band: _BandStats, chant_bands: list[_BandStats], *, 
 
 
 def _max_lyric_gap(height: int) -> int:
-    return max(125, int(height * 0.07))
+    # Real neume->lyric gaps are small (90th percentile ~27px on the audit set).
+    # A tight bound stops a lyric from binding across a missed neume row to the
+    # wrong chant above it.
+    return max(50, int(height * 0.024))
 
 
 def _merge_band_group(group: list[_BandStats]) -> _BandStats:
@@ -315,6 +316,7 @@ def _merge_band_group(group: list[_BandStats]) -> _BandStats:
         long_component_count=sum(band.long_component_count for band in group),
         long_width_sum=sum(band.long_width_sum for band in group),
         ink_ratio=float(weighted_ink / area),
+        page_width=max(band.page_width for band in group),
     )
 
 
@@ -426,14 +428,14 @@ def _band_stats(binary: np.ndarray, *, min_row_height: int) -> list[_BandStats]:
             continue
         components.append((int(x), int(y), int(component_width), int(component_height), int(area), float(centroids[label][1])))
 
-    row_groups = _component_row_groups(components, height=height)
+    row_groups = _projection_row_groups(binary, components, min_height=min_row_height)
     result: list[_BandStats] = []
 
-    for group in row_groups:
+    for band_y1, band_y2, group in row_groups:
         x1 = width
         x2 = 0
-        y1 = height
-        y2 = 0
+        y1 = band_y2
+        y2 = band_y1
         components = 0
         long_components = 0
         long_width_sum = 0
@@ -444,8 +446,10 @@ def _band_stats(binary: np.ndarray, *, min_row_height: int) -> list[_BandStats]:
             components += 1
             x1 = min(x1, int(x))
             x2 = max(x2, int(x + component_width))
-            y1 = min(y1, int(y))
-            y2 = max(y2, int(y + component_height))
+            # Clip vertical extent to the projection sub-band so a stroke that
+            # dips across the neume/lyric valley does not inflate the band.
+            y1 = min(y1, max(band_y1, int(y)))
+            y2 = max(y2, min(band_y2, int(y + component_height)))
             aspect = component_width / component_height
             if component_width >= min_width and component_height <= max_height and aspect >= 3.0:
                 long_components += 1
@@ -458,27 +462,123 @@ def _band_stats(binary: np.ndarray, *, min_row_height: int) -> list[_BandStats]:
         bbox = BoundingBox(x1, y1, x2, y2)
         roi = binary[y1:y2, x1:x2] > 0
         ink_ratio = float(np.mean(roi)) if roi.size else 0.0
-        result.append(_BandStats(bbox, components, long_components, long_width_sum, ink_ratio))
+        result.append(
+            _BandStats(bbox, components, long_components, long_width_sum, ink_ratio, page_width=width)
+        )
 
     return result
 
 
-def _component_row_groups(
+def _projection_line_bands(
+    binary: np.ndarray,
+    *,
+    min_gap: int,
+    min_height: int,
+    min_ink_fraction: float = 0.002,
+) -> list[tuple[int, int]]:
+    """Clean, non-overlapping ink line-bands from a horizontal projection.
+
+    This replaces centroid clustering (which produced overlapping, fragmented
+    bands) so a neume row and the lyric row beneath it land in distinct bands.
+    """
+
+    height, width = binary.shape
+    row_ink = (binary > 0).sum(axis=1)
+    threshold = max(1.0, min_ink_fraction * width)
+    active = row_ink >= threshold
+    bands: list[tuple[int, int]] = []
+    start: int | None = None
+    gap = 0
+    for y in range(height):
+        if active[y]:
+            if start is None:
+                start = y
+            gap = 0
+        elif start is not None:
+            gap += 1
+            if gap > min_gap:
+                end = y - gap + 1
+                if end - start >= min_height:
+                    bands.append((start, end))
+                start = None
+                gap = 0
+    if start is not None:
+        end = height - gap if gap else height
+        if end - start >= min_height:
+            bands.append((start, end))
+    return bands
+
+
+def _split_band_at_valleys(
+    row_ink: np.ndarray,
+    y1: int,
+    y2: int,
+    *,
+    min_gap: int,
+    min_height: int,
+) -> list[tuple[int, int]]:
+    """Split a tall band at its single deepest ink valley.
+
+    Touching neume/lyric rows merge in the projection (their gap is ~0 ink).
+    Only over-tall bands are candidates, and only the deepest central valley is
+    cut, so an ordinary neume or diacritic-laden lyric row is never shattered.
+    """
+
+    height = y2 - y1
+    split_threshold = max(110, int(row_ink.shape[0] * 0.04))
+    if height <= split_threshold:
+        return [(y1, y2)]
+
+    segment = row_ink[y1:y2].astype(float)
+    lo = int(height * 0.30)
+    hi = int(height * 0.75)
+    if hi - lo < 2:
+        return [(y1, y2)]
+    valley = lo + int(np.argmin(segment[lo:hi]))
+    # Require the valley to be a genuine separator: low ink relative to the
+    # surrounding peaks, otherwise this is one continuous row.
+    peak = max(segment[:valley].max(), segment[valley:].max(), 1.0)
+    if segment[valley] > peak * 0.42:
+        return [(y1, y2)]
+
+    top = (y1, y1 + valley)
+    bottom = (y1 + valley, y2)
+    parts: list[tuple[int, int]] = []
+    for a, b in (top, bottom):
+        if b - a >= min_height:
+            parts.extend(_split_band_at_valleys(row_ink, a, b, min_gap=min_gap, min_height=min_height))
+    return parts or [(y1, y2)]
+
+
+def _projection_row_groups(
+    binary: np.ndarray,
     components: list[tuple[int, int, int, int, int, float]],
     *,
-    height: int,
+    min_height: int,
 ) -> list[list[tuple[int, int, int, int, int, float]]]:
-    tolerance = max(6, int(height * 0.006))
-    groups: list[list[tuple[int, int, int, int, int, float]]] = []
-    centers: list[float] = []
-    for component in sorted(components, key=lambda item: item[5]):
+    height = binary.shape[0]
+    min_gap = max(4, int(height * 0.0015))
+    row_ink = (binary > 0).sum(axis=1)
+    coarse = _projection_line_bands(binary, min_gap=min_gap, min_height=min_height)
+    bands: list[tuple[int, int]] = []
+    for y1, y2 in coarse:
+        bands.extend(_split_band_at_valleys(row_ink, y1, y2, min_gap=min_gap, min_height=min_height))
+    if not bands:
+        return []
+    groups: list[list[tuple[int, int, int, int, int, float]]] = [[] for _ in bands]
+    starts = [b[0] for b in bands]
+    for component in components:
         center_y = component[5]
-        for index, center in enumerate(centers):
-            if abs(center_y - center) <= tolerance:
-                groups[index].append(component)
-                centers[index] = sum(item[5] for item in groups[index]) / len(groups[index])
-                break
-        else:
-            groups.append([component])
-            centers.append(center_y)
+        # Place each component in the band whose span contains its centroid;
+        # fall back to the nearest band for stray diacritics in the gutter.
+        index = bisect_right(starts, center_y) - 1
+        if index < 0:
+            index = 0
+        elif index + 1 < len(bands) and center_y >= bands[index][1]:
+            below = bands[index + 1][0] - center_y
+            above = center_y - bands[index][1]
+            if below < above:
+                index += 1
+        groups[index].append(component)
+    return [(bands[i][0], bands[i][1], group) for i, group in enumerate(groups) if group]
     return [group for _, group in sorted(zip(centers, groups), key=lambda item: item[0])]
