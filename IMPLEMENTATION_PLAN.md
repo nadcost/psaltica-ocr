@@ -6,6 +6,8 @@
 
 Why this is feasible now: the user owns a private corpus of Byzantine PDFs (training material), and the Psaltica Praxis app already encodes the entire symbol vocabulary canonically across `app/core/toolbars.ts`, `app/core/keySignatures.ts`, and `app/core/music/actionMap.ts`. The OCR project does **not** need to invent a notation; it needs to recognize visual glyphs and emit the app's existing cluster format.
 
+Additional benefit: running the OCR engine across the training-set books creates an empirical source of alignment examples. Once pages are annotated and corrected, the corpus can be mined to deduce recurring neume-to-modifier groupings, key-signature placement patterns, and spacing relationships that should inform deterministic cluster assembly rules and validator constraints.
+
 Intended outcome: a local Python pipeline that converts a clean printed-PDF page into Psaltica composition JSON with both notation and lyrics populated enough to minimize manual cleanup, with a review/correction UI to drive iterative training and alignment-rule tuning. Mobile/on-device deployment is a later phase out of scope here.
 
 ---
