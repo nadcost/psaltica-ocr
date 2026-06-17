@@ -10,6 +10,8 @@ Additional benefit: running the OCR engine across the training-set books creates
 
 Intended outcome: a local Python pipeline that converts a clean printed-PDF page into Psaltica composition JSON with both notation and lyrics populated enough to minimize manual cleanup, with a review/correction UI to drive iterative training and alignment-rule tuning. Mobile/on-device deployment is a later phase out of scope here.
 
+Current Praxis reference to preserve in OCR planning: Psaltica Praxis `1.1.10` (build 52, 2026-06-17) changed printed/PDF output to use absolute paper-space point geometry. Notation size, lyric size, lyric baseline offset, margins, paper, orientation, and include-lyrics are now print settings; `lyricSizePt` and `lyricOffsetPt` replace the older percent/factor model in settings exports. The print layout also adds a proportional inter-cluster gap, bakes row scale into absolute point coordinates instead of CSS transforms, and balances lyric offset against the following line. Any OCR synthetic-print fixtures, visual audits, or app-parity render checks must use the current Praxis print stack as the source of truth, not older edge-to-edge/transform-based assumptions.
+
 ---
 
 ## Architecture (data flow)
@@ -85,7 +87,9 @@ psaltica-ocr/
   tools/
     sync_symbol_map.py       # Python wrapper that runs:
     _extract_symbol_map.ts   # ts-node script: imports app modules, writes JSON
+    sync_praxis_print_reference.py # optional: snapshot print layout constants/settings
     render_pdfs.py
+    render_praxis_print_fixtures.py # optional: Praxis-generated PDFs/images for parity
     export_label_studio_config.py
     import_labels.py         # Label Studio JSON → YOLO format
     train.py                 # ultralytics wrapper
@@ -152,6 +156,27 @@ psaltica-ocr/
 - `psaltica_ocr/symbol_map.py` loads + validates the JSON via pydantic.
 - Drift detection: `sync_symbol_map.py --check` mode that re-runs extraction and diffs against the committed `symbol_map.json` — fails CI on drift.
 - Tests: every char in `symbol_map.json` is unique within its `(group, variant)` scope; every `RAW_KEY_SIGNATURES.insert` decomposes into known chars; every `ACTION_CHAR_MAP` icon appears in exactly one toolbar OR is a key signature OR is explicitly orphan; **the extractor records the live counts** of toolbar items, key signatures, and action-map entries into `symbol_map.json._meta` and a separate count test asserts those counts — drift fails CI loudly rather than silently mis-classing OCR output.
+- **Praxis print-layout reference snapshot** — lightweight metadata, not a second renderer:
+  - Read `/Users/nadcost/psaltica-praxis/CHANGELOG.md` and the current print modules before changing OCR geometry assumptions:
+    - `app/core/print/printLayout.ts`
+    - `app/core/print/htmlAdapter.ts`
+    - `app/core/print/clusterRenderPlan.ts`
+    - `app/core/settings/settingsExport.ts`
+  - Record the app version/build and the current print settings schema in OCR fixture metadata. As of Praxis `1.1.10`/build 52, settings exports use:
+    ```json
+    {
+      "print": {
+        "notationSize": 28,
+        "lyricSizePt": 16,
+        "lyricOffsetPt": 50,
+        "marginPercent": 8,
+        "paper": "A4",
+        "orientation": "portrait",
+        "includeLyrics": true
+      }
+    }
+    ```
+  - Treat the app's print layout as an external reference for expected geometry: inter-cluster gap is part of printed spacing, lyric baseline offset is an absolute paper-space gap, and generated HTML/PDF coordinates have scale baked into absolute point values. OCR should snapshot these facts for tests/audits, but should not duplicate the full TypeScript layout engine in Python unless an actual import/export parity test requires it.
 
 **Decision (revised, was high finding #1):** Source of truth is `toolbars.ts` + `keySignatures.ts` + `actionMap.ts`, NOT the CSV. CSV labels (e.g. `Modulation1`) are stale relative to current app labels (`ModulationDiatonicPa`), and CSV does not include the expanded 49-entry key-signature catalog. Reading from the live TS modules guarantees the OCR taxonomy never drifts from the app.
 
@@ -160,6 +185,11 @@ psaltica-ocr/
 **Deliverables:**
 - `tools/render_pdfs.py`: PDF → 400 dpi PNGs, deterministic naming `data/pages/<book_id>/page_<NNNN>.png`, manifest CSV with hash + dpi + page dims.
 - `psaltica_ocr/rendering.py`: shared rendering primitives (deskew, binarize, dewarp helpers using OpenCV).
+- **Praxis-generated print fixtures (optional but recommended for app parity):**
+  - Generate a small synthetic corpus from known Psaltica composition JSON through the live Praxis print/PDF path, then rasterize those PDFs/images into `data/pages/praxis_print_<version>/...`.
+  - Fixture metadata must store `praxisVersion`, `praxisBuild`, paper/orientation/margins, notation size, `lyricSizePt`, `lyricOffsetPt`, and whether lyrics were included.
+  - Use these fixtures to verify the OCR geometry model against the app's current printed output: added inter-cluster gap, absolute point sizing, no CSS-transform scaling, balanced lyric-to-next-line spacing, measure barlines, time-signature labels, and RTL/Arabic tatweel lyric spans.
+  - Keep real book scans/PDFs as the primary training target; Praxis fixtures are for smoke tests, regression tests, and synthetic edge cases where ground truth is known exactly.
 - **Layout segmentation (expanded scope):** detect and persist page regions instead of only dropping lyrics:
   - `chant_mask(image)`: binary mask of probable chant rows for neume/modifier annotation and detector training.
   - `detect_lyric_regions(image)`: lyric row boxes kept as OCR input, not discarded.
@@ -168,7 +198,7 @@ psaltica-ocr/
   - v1 learned layout detector: if v0 is unreliable, add `chant_row`, `lyrics_text`, and `non_score_text` classes during Phase 2 annotation.
   - Neume training still uses chant-only masks so lyric characters do not become false-positive neume classes, but the original lyric rows are retained for OCR and alignment.
 - Initial corpus audit: pick 2-3 books with the cleanest print + most common style, defer scans/photos.
-- `bd-mpj`: closed when 200-500 pages are rendered, chant masks and lyric-region metadata are manifested, and a 10-page visual audit confirms row pairing quality.
+- `bd-mpj`: closed when 200-500 pages are rendered, chant masks and lyric-region metadata are manifested, a 10-page visual audit confirms row pairing quality, and at least one current-Praxis print fixture page is rendered/audited if synthetic fixtures are enabled.
 
 ### Phase 2 — Annotation workflow (≈ 1-2 weeks)
 
@@ -184,6 +214,7 @@ psaltica-ocr/
   - `data/corrections/<page>/expected_composition.json`: `{"segments": [{"composition": "vV1S2a...", "direction": "ltr"}]}`
   - `data/corrections/<page>/expected_lyrics.json`: normalized lyric text per paired lyric row
   - `data/corrections/<page>/expected_lyric_alignment.json`: lyric word/syllable spans mapped to chant cluster indexes
+  - For Praxis-generated print fixtures only, add `data/corrections/<page>/source_print_settings.json` with the Praxis version/build and print settings used to render the page. This prevents old percent-based lyric settings or pre-1.1.10 spacing assumptions from leaking into future tests.
   These gold files are the end-to-end accuracy target from Phase 3 onward. Detection mAP alone will not tell you whether the import pipeline is useful.
 - `bd-mgr`: closed when 50 pages are annotated/exported, lyric row metadata is present, AND ≥5 gold composition/lyrics/alignment fixtures are written.
 
@@ -242,6 +273,7 @@ Run after layout segmentation and before final JSON export.
 3. Run local OCR on each lyric row. v0 target is offline OCR with Greek, Latin/English, and Arabic script packs; the adapter must expose a stable interface so Tesseract, PaddleOCR, or a later specialized model can be swapped without changing assembly.
 4. Normalize text using NFC, preserve diacritics, preserve punctuation, and keep the raw OCR text alongside normalized text for review.
 5. Emit word/syllable candidate boxes with confidence when the OCR engine provides them; otherwise derive coarse word boxes from row geometry and text length.
+6. When the source is a Praxis print fixture, compare lyric row boxes against the app's absolute point print geometry: `lyricSizePt` is paper-relative, `lyricOffsetPt` is a baseline gap below notation, and row advance may be larger than editor line-height spacing so the below-lyric gap is not stolen from the next notation line.
 
 **Pass E — Lyric-to-cluster alignment (`psaltica_ocr/lyric_alignment.py`):**
 Attach lyric text to the musical clusters so imports require minimal manual entry.
@@ -250,6 +282,7 @@ Attach lyric text to the musical clusters so imports require minimal manual entr
 3. Align units to cluster x-ranges by geometric overlap, then resolve collisions with monotonic sequence rules. Encoding order for composition remains L→R; lyric row direction is metadata and can be RTL.
 4. Allow one lyric unit to span multiple clusters and one cluster to carry zero, one, or multiple lyric units.
 5. Store alignment confidence and unresolved units in `_ocr.warnings` for review.
+6. Do not assume printed cluster columns are edge-to-edge. The current Praxis print engine inserts a proportional inter-cluster gap while keeping each cluster's own advance width for lyric centering. Alignment should use observed glyph/cluster boxes from detection, and any synthetic Praxis fixture should account for that gap when comparing expected x-ranges.
 
 **Strict notation validator (`psaltica_ocr/ocr_validator.py`) — notation quality gate:**
 Replaces "parseable composition" with "strictly valid composition". The Python port of `clusterParser.ts` is kept ONLY as a sanity check (does the editor accept this string?), because that parser is intentionally permissive — it classifies unknown chars as `trailing` rather than rejecting them, so a pure round-trip cannot detect invalid OCR output.
@@ -378,7 +411,8 @@ All large artifacts (PDFs, page images, annotations, model weights) are gitignor
 6. **Chant/lyrics layout is in scope (v0 heuristic, v1 learned layout classes).** Lyrics rows are masked out only for neume detector training; they are preserved as OCR/alignment input.
 7. **Lyrics are first-class import data.** The pipeline must OCR lyric rows, preserve script/direction metadata, normalize Unicode, and align lyric units to chant clusters while keeping composition encoding L→R.
 8. **Review corrections are split into 6 tracks** (detections, cluster_overrides, reading_order, expected_composition, expected_lyrics, expected_lyric_alignment) so each correction reaches the right subsystem.
-9. **No edits to psaltica-praxis.** OCR project is fully standalone; app integration is a later, separate effort.
+9. **Praxis print geometry is a moving reference, not OCR-owned logic.** As of Praxis `1.1.10`, print/PDF output uses absolute point sizing, absolute lyric baseline gap, inter-cluster print gap, and balanced row advance. OCR fixtures and audits must record the Praxis version/build and print settings that produced any synthetic page.
+10. **No edits to psaltica-praxis.** OCR project is fully standalone; app integration is a later, separate effort.
 
 ---
 
@@ -397,7 +431,7 @@ And the resulting JSON `segments[].composition` strings and `segments[].lyrics`,
 
 Per-phase success metrics:
 - Phase 0: `sync_symbol_map.py --check` is clean; symbol_map.json covers all toolbar items + all 49 key signatures + all 83 actionMap entries.
-- Phase 1: ≥ 200 manifested pages, sample audited visually, chant-mask precision ≥ 90% and lyric-row pairing precision ≥ 90% on a 10-page audit set.
+- Phase 1: ≥ 200 manifested pages, sample audited visually, chant-mask precision ≥ 90% and lyric-row pairing precision ≥ 90% on a 10-page audit set; if Praxis-generated fixtures are enabled, at least one fixture records current `lyricSizePt`/`lyricOffsetPt` print metadata and visually matches the app's current printed spacing.
 - Phase 2: ≥ 50 pages annotated, dataset YAML loads in ultralytics, lyric row metadata exported, and ≥5 pages have composition/lyrics/alignment gold.
 - Phase 3: mAP@0.5 ≥ 0.85 on val split; cluster-level, lyric OCR, and lyric-alignment accuracy on the 5-10 Phase 2 gold pages recorded (informational, no fixed gate).
 - Phase 4: **strict notation validator passes on ≥ 80% of held-out test pages**; lyric validator has zero hard errors on ≥80%; cluster-level accuracy ≥ 80% against `expected_composition.json`; lyric row pairing ≥90%; lyric alignment ≥70%; OCR text accuracy recorded per script.
@@ -418,6 +452,7 @@ Run `pytest` after each phase. Run `bd ready` between phases to find next work.
 - **Lyric OCR quality varies by script and print.** Greek with diacritics and Arabic can be much harder than Latin. Mitigation: keep OCR behind an adapter, record accuracy per script, preserve raw OCR output, and route low-confidence rows to review.
 - **Lyric-to-cluster alignment is ambiguous.** Melismatic passages, missing hyphens, and multiple lyric lines can make one-to-one alignment impossible. Mitigation: store confidence, allow one-to-many/many-to-one mappings, and expose alignment corrections as their own review track.
 - **RTL lyrics with LTR composition encoding.** Arabic lyric rows may read RTL while Psaltica composition encoding stays L→R. Mitigation: store per-row lyric direction separately from segment composition order and validate alignment indexes against cluster order.
+- **Praxis print-layout drift.** Print/PDF geometry can change independently of notation taxonomy, as in Praxis `1.1.10` build 52. Mitigation: store version/build/settings metadata on synthetic print fixtures, read the live print modules before changing OCR geometry assumptions, and keep real scanned/PDF books as the primary training target.
 
 ---
 
