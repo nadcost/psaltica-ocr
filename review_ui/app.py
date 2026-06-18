@@ -104,6 +104,19 @@ def _hex_to_bgr(color: str) -> tuple[int, int, int]:
     return (b, g, r)
 
 
+def _region_overlay(image_gray: np.ndarray, boxes: list[rio.Box], x: int, y: int, w: int, h: int) -> np.ndarray:
+    """Boxes drawn on the page, then cropped to the (x,y,w,h) viewport — feeding a
+    small region to the cropper makes it fit-to-container = zoomed in, and moving
+    the region is the pan. Box coords come back in region pixels."""
+    canvas = cv2.cvtColor(image_gray, cv2.COLOR_GRAY2BGR)
+    for i, box in enumerate(boxes):
+        color = _hex_to_bgr(box.color())
+        cv2.rectangle(canvas, (int(box.x1), int(box.y1)), (int(box.x2), int(box.y2)), color, 2)
+        cv2.putText(canvas, str(i), (int(box.x1), max(12, int(box.y1) - 4)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+    return cv2.cvtColor(canvas[y: y + h, x: x + w], cv2.COLOR_BGR2RGB)
+
+
 def _overlay(image_gray: np.ndarray, boxes: list[rio.Box], highlight: set[int], display_width: int) -> np.ndarray:
     canvas = cv2.cvtColor(image_gray, cv2.COLOR_GRAY2BGR)
     for i, box in enumerate(boxes):
@@ -206,11 +219,8 @@ def main() -> None:
                     st.session_state[f"cls::{b.uid}"] = guess
                 break
 
-    factor = width / display_width
-    overlay = _overlay(image, boxes, set(view_indices), display_width)
-
     c_draw, c_guess = st.columns(2)
-    draw_mode = c_draw.checkbox("✏️ Draw mode — drag a resizable box over a glyph")
+    draw_mode = c_draw.checkbox("✏️ Draw mode — zoom/pan, then drag a box")
     auto_guess = c_guess.checkbox("🔮 Auto-guess from your labels", value=True,
                                   help="A drawn box is matched against glyphs you've already labelled this "
                                        "session; it auto-fills only on a confident match, else stays "
@@ -223,22 +233,27 @@ def main() -> None:
         from PIL import Image
         from streamlit_cropper import st_cropper
 
-        st.caption("Drag the green box and its handles over a glyph (live), then ➕ Add. "
-                   "The box stays put so you can slide it to the next glyph and add again.")
-        box = st_cropper(Image.fromarray(overlay), realtime_update=True, box_color="#00cc00",
+        z1, z2, z3 = st.columns(3)
+        zoom = z1.slider("🔍 Zoom", 1.0, 8.0, 3.0, 0.5)
+        vw, vh = min(width, max(60, int(width / zoom))), min(height, max(60, int(height / zoom)))
+        pan_x = z2.slider("Pan →", 0, width - vw, 0, max(1, (width - vw) // 30)) if width - vw > 0 else 0
+        pan_y = z3.slider("Pan ↓", 0, height - vh, 0, max(1, (height - vh) // 30)) if height - vh > 0 else 0
+
+        region = _region_overlay(image, boxes, pan_x, pan_y, vw, vh)
+        st.caption("Zoom/pan with the sliders, drag the green box over a glyph, then ➕ Add.")
+        box = st_cropper(Image.fromarray(region), realtime_update=True, box_color="#00cc00",
                          return_type="box", should_resize_image=False, key=f"crop::{page}",
-                         default_coords=(20, 60, 20, 60))
+                         default_coords=(10, 50, 10, 50))
         if st.button("➕ Add this box", type="primary"):
-            x1b, y1b = max(0, box["left"] * factor), max(0, box["top"] * factor)
-            x2b = min(width, (box["left"] + box["width"]) * factor)
-            y2b = min(height, (box["top"] + box["height"]) * factor)
+            x1b, y1b = pan_x + max(0, box["left"]), pan_y + max(0, box["top"])
+            x2b, y2b = min(width, x1b + box["width"]), min(height, y1b + box["height"])
             if x2b > x1b and y2b > y1b:
                 cls = guess_cls(image[int(y1b):int(y2b), int(x1b):int(x2b)]) if auto_guess else ""
                 snapshot()
                 boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
                 st.rerun()
     else:
-        st.image(overlay, width=display_width,
+        st.image(_overlay(image, boxes, set(view_indices), display_width), width=display_width,
                  caption=f"{page} — {len(boxes)} boxes (current panel page highlighted)")
 
     st.markdown(f"**{len(boxes)} boxes** · classes assigned: {sum(1 for b in boxes if b.cls)} · "
