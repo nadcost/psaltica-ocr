@@ -56,6 +56,11 @@ def _glyph_uri(cls: str, symbol_map_path: str) -> str | None:
     return rio.class_glyph_datauri(cls, _icon_inserts(symbol_map_path))
 
 
+@st.cache_resource
+def _glyph_descriptors(classes_path: str, symbol_map_path: str) -> dict:
+    return rio.build_glyph_descriptors(_class_names(classes_path), _icon_inserts(symbol_map_path))
+
+
 def _load_pages(pages_file: Path) -> list[str]:
     if not pages_file.exists():
         return []
@@ -98,6 +103,7 @@ def main() -> None:
     st.title("Psaltica OCR — detection review")
 
     classes = _class_names(str(DEFAULT_CLASSES))
+    descriptors = _glyph_descriptors(str(DEFAULT_CLASSES), str(DEFAULT_SYMBOL_MAP))
     preds = _predictions(str(DEFAULT_PREDICTIONS))
     pages = _load_pages(DEFAULT_PAGES_FILE)
     if not pages:
@@ -143,17 +149,19 @@ def main() -> None:
     view_indices = indices[view * per_view : (view + 1) * per_view]
 
     overlay = _overlay(image, boxes, set(view_indices), display_width)
-    draw_mode = st.checkbox("✏️ Draw mode — drag a rectangle on the page to add a box")
-    new_cls = st.selectbox("New-box class (for boxes you draw)", classes, key="add_cls")
+    c_draw, c_guess = st.columns(2)
+    draw_mode = c_draw.checkbox("✏️ Draw mode — drag a rectangle on the page to add a box")
+    auto_guess = c_guess.checkbox("🔮 Auto-guess class for drawn boxes", value=bool(descriptors))
+    new_cls = st.selectbox("Fallback class (used when auto-guess is off or unsure)", classes, key="add_cls")
     glyph = _glyph_uri(new_cls, str(DEFAULT_SYMBOL_MAP))
     if glyph:
-        st.markdown(f"new box → <img src='{glyph}' width='40'> `{new_cls}`", unsafe_allow_html=True)
+        st.markdown(f"fallback → <img src='{glyph}' width='40'> `{new_cls}`", unsafe_allow_html=True)
 
     if draw_mode:
         from streamlit_image_coordinates import streamlit_image_coordinates
 
-        st.caption("Drag from one corner of the missed glyph to the opposite corner. "
-                   "The new box gets the class selected above; fix it in the list if needed.")
+        st.caption("Drag from one corner of the glyph to the opposite corner. The box is "
+                   "auto-labelled with its best-matching glyph; correct it in the list if wrong.")
         result = streamlit_image_coordinates(overlay, width=display_width, click_and_drag=True, key=f"draw::{page}")
         if result and result.get("x2") is not None:
             sig = (result["x1"], result["y1"], result["x2"], result["y2"])
@@ -163,8 +171,12 @@ def main() -> None:
                 factor = width / display_width  # coords come back in the displayed-image space
                 xs = sorted([result["x1"] * factor, result["x2"] * factor])
                 ys = sorted([result["y1"] * factor, result["y2"] * factor])
-                boxes.append(rio.Box(new_cls, max(0, xs[0]), max(0, ys[0]),
-                                     min(width, xs[1]), min(height, ys[1]), source="added"))
+                x1b, y1b, x2b, y2b = max(0, xs[0]), max(0, ys[0]), min(width, xs[1]), min(height, ys[1])
+                cls = new_cls
+                if auto_guess:
+                    guess, _ = rio.guess_class(image[int(y1b):int(y2b), int(x1b):int(x2b)], descriptors)
+                    cls = guess or new_cls
+                boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
                 st.rerun()
     else:
         st.image(overlay, width=display_width,
@@ -175,7 +187,7 @@ def main() -> None:
 
     for i in view_indices:
         box = boxes[i]
-        cols = st.columns([1, 1, 4, 1])
+        cols = st.columns([1, 1, 4, 1, 1])
         crop = image[max(0, int(box.y1)): int(box.y2), max(0, int(box.x1)): int(box.x2)]
         if crop.size:
             cols[0].image(crop, caption=f"#{i}", width=64)
@@ -185,7 +197,13 @@ def main() -> None:
         uri = _glyph_uri(box.cls, str(DEFAULT_SYMBOL_MAP))
         if uri:
             cols[1].markdown(f"<img src='{uri}' width='52'>", unsafe_allow_html=True)
-        if cols[3].button("🗑", key=f"del::{page}::{i}", help="Delete this box"):
+        if cols[3].button("🔮", key=f"guess::{page}::{i}", help="Guess class from the crop", disabled=not descriptors):
+            guess, _ = rio.guess_class(crop, descriptors)
+            if guess:
+                box.cls = guess
+                st.session_state[f"cls::{page}::{i}"] = guess  # override the selectbox widget state
+                st.rerun()
+        if cols[4].button("🗑", key=f"del::{page}::{i}", help="Delete this box"):
             boxes.pop(i)
             st.rerun()
 

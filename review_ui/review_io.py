@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
+import cv2
+import numpy as np
 import yaml
 
 # Stroke colour per class group, so boxes are readable on the canvas.
@@ -73,6 +75,52 @@ def load_class_names(classes_path: str | Path) -> list[str]:
     if isinstance(names, dict):
         return [names[index] for index in sorted(names)]
     return list(names)
+
+
+GLYPH_DESC_SIZE = 48
+
+
+def _descriptor(gray: np.ndarray, size: int = GLYPH_DESC_SIZE) -> np.ndarray:
+    """Shape descriptor: edge-gradient of the glyph resized to a square."""
+    from psaltica_ocr.template_matching import to_gradient
+
+    resized = cv2.resize(gray, (size, size), interpolation=cv2.INTER_AREA)
+    return to_gradient(resized).astype(np.float32)
+
+
+def build_glyph_descriptors(
+    class_names: list[str], icon_inserts: dict[str, str], size: int = GLYPH_DESC_SIZE
+) -> dict[str, np.ndarray]:
+    """Render each class's font glyph to a shape descriptor for crop matching."""
+    from psaltica_ocr.template_matching import render_template
+
+    descriptors: dict[str, np.ndarray] = {}
+    for cls in class_names:
+        if "." not in cls:
+            continue
+        insert = icon_inserts.get(cls.split(".", 1)[1])
+        if not insert:
+            continue
+        template = render_template(insert, 9.0)
+        if template is not None:
+            descriptors[cls] = _descriptor(template, size)
+    return descriptors
+
+
+def guess_class(
+    crop_gray: np.ndarray, descriptors: dict[str, np.ndarray], size: int = GLYPH_DESC_SIZE
+) -> tuple[str | None, float]:
+    """Best-matching class for a box crop (normalized gradient correlation)."""
+    if crop_gray is None or crop_gray.size == 0 or not descriptors:
+        return None, 0.0
+    _, binary = cv2.threshold(crop_gray, 200, 255, cv2.THRESH_BINARY)
+    crop_desc = _descriptor(binary, size)
+    best_cls, best_score = None, -2.0
+    for cls, desc in descriptors.items():
+        score = float(cv2.matchTemplate(crop_desc, desc, cv2.TM_CCOEFF_NORMED)[0, 0])
+        if score > best_score:
+            best_cls, best_score = cls, score
+    return best_cls, best_score
 
 
 def class_glyph_datauri(cls: str, icon_inserts: dict[str, str]) -> str | None:

@@ -108,3 +108,22 @@ def test_save_and_load_page_detections_round_trip(tmp_path) -> None:
 
 def test_load_page_detections_missing_returns_none(tmp_path) -> None:
     assert load_page_detections(tmp_path, "x/y/page_0001.png", CLASSES, 100, 100) is None
+
+
+def test_guess_class_recovers_rendered_glyph() -> None:
+    from pathlib import Path
+
+    from psaltica_ocr.template_matching import load_symbol_map, render_template
+
+    from review_ui.review_io import build_glyph_descriptors, guess_class
+
+    inserts = load_symbol_map(Path("config/symbol_map.json"))
+    names = ["base_neume.Oligon", "mode.PaKey", "rest.Kratima", "base_neume.Petasti"]
+    descriptors = build_glyph_descriptors(names, inserts)
+    if not descriptors:
+        pytest.skip("font unavailable")
+    target = next(c for c in names if c in descriptors)
+    crop = render_template(inserts[target.split(".", 1)[1]], 9.0)
+    guess, score = guess_class(crop, descriptors)
+    assert guess == target
+    assert score > 0.5
