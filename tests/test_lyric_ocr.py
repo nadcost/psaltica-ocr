@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unicodedata
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -23,6 +24,7 @@ from psaltica_ocr.lyric_ocr_audit import (
     audit_gold,
     char_error_rate,
     levenshtein,
+    load_gold,
     word_error_rate,
 )
 
@@ -167,3 +169,20 @@ def test_audit_gold_buckets_by_script() -> None:
     assert by_script["Arabic"].word_accuracy == 0.0
     assert report.engine == "fake"
     assert report.to_dict()["overall"]["word_accuracy"] < 1.0
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    ["config/expected_lyrics_synthetic.json", "config/expected_lyrics_real.json"],
+)
+def test_committed_gold_fixtures_are_well_formed(fixture: str) -> None:
+    # Scoring needs tesseract + (for the real set) the local corpus, so this only
+    # guards the fixture schema the audit harness depends on.
+    pages = load_gold(Path(fixture))
+    assert pages
+    for page in pages:
+        assert page.rows
+        for row in page.rows:
+            assert row.text
+            assert row.script in ("Greek", "Latin", "Arabic", "mixed", "unknown")
+            assert row.bbox.x2 > row.bbox.x1 and row.bbox.y2 > row.bbox.y1

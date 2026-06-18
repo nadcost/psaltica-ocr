@@ -1,0 +1,34 @@
+{
+  "_doc": "Real-print lyric OCR gold, hand-transcribed from the local page corpus (image paths under gitignored data/, so scoring requires the local corpus). Rows are the syllabic 'Κυριε ελεησον' Greek lyric lines printed under each neume block on Mass/page_0498, each opening with an ornamental drop-cap Kappa. This Greek-Arabic Mass book carries Arabic only as page furniture (headers), not as lyric rows, so real Arabic-lyric accuracy stays on the synthetic benchmark until an Arabic-lyric source is added. Score: PATH=/opt/homebrew/bin:$PATH uv run python tools/audit_lyric_ocr.py score --gold config/expected_lyrics_real.json --output data/lyric_ocr_report_real.json",
+  "pages": [
+    {
+      "image_path": "data/pages_full/Mass/page_0498.png",
+      "rows": [
+        {
+          "bbox": {"x1": 430, "y1": 772, "x2": 1820, "y2": 895},
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Κ υ ρι ε ε λε ε η σον"
+        },
+        {
+          "bbox": {"x1": 430, "y1": 1462, "x2": 1820, "y2": 1585},
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Κ υ ρι ε ε λε η η σον"
+        },
+        {
+          "bbox": {"x1": 430, "y1": 2070, "x2": 1820, "y2": 2180},
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Κ υ ρι ε ε λε η σον"
+        },
+        {
+          "bbox": {"x1": 430, "y1": 2725, "x2": 1820, "y2": 2845},
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Κ υ ρι ε ε λε η σον"
+        }
+      ]
+    }
+  ]
+}
