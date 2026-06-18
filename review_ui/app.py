@@ -207,13 +207,9 @@ def main() -> None:
 
     factor = width / display_width
     overlay = _overlay(image, boxes, set(view_indices), display_width)
-    pend_pt = st.session_state.get(f"pend::{page}")
-    if pend_pt:
-        cv2.drawMarker(overlay, (int(pend_pt[0] / factor), int(pend_pt[1] / factor)),
-                       (255, 0, 0), cv2.MARKER_CROSS, 26, 3)
 
     c_draw, c_guess = st.columns(2)
-    draw_mode = c_draw.checkbox("✏️ Draw mode — click two opposite corners of a glyph")
+    draw_mode = c_draw.checkbox("✏️ Draw mode — drag a resizable box over a glyph")
     auto_guess = c_guess.checkbox("🔮 Auto-guess from your labels", value=True,
                                   help="A drawn box is matched against glyphs you've already labelled this "
                                        "session; it auto-fills only on a confident match, else stays "
@@ -223,30 +219,23 @@ def main() -> None:
                    f"{len({c for c, _ in exemplars})} glyph classes")
 
     if draw_mode:
-        from streamlit_image_coordinates import streamlit_image_coordinates
+        from PIL import Image
+        from streamlit_cropper import st_cropper
 
-        st.caption("Click one corner, then the opposite corner. The red ✚ marks your first corner; "
-                   "the box is auto-labelled and you correct it in the list if wrong.")
-        result = streamlit_image_coordinates(overlay, width=display_width, key=f"click::{page}")
-        if result and result.get("x") is not None:
-            sig = (result["x"], result["y"])
-            if st.session_state.get(f"lastclick::{page}") != sig:
-                st.session_state[f"lastclick::{page}"] = sig
-                pt = (result["x"] * factor, result["y"] * factor)
-                if pend_pt is None:
-                    st.session_state[f"pend::{page}"] = pt
-                    st.rerun()
-                else:
-                    xs = sorted([pend_pt[0], pt[0]])
-                    ys = sorted([pend_pt[1], pt[1]])
-                    x1b, y1b, x2b, y2b = max(0, xs[0]), max(0, ys[0]), min(width, xs[1]), min(height, ys[1])
-                    cls = ""  # unassigned by default — you pick it in the list
-                    if auto_guess and x2b > x1b and y2b > y1b:
-                        cls = guess_cls(image[int(y1b):int(y2b), int(x1b):int(x2b)])
-                    snapshot()
-                    boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
-                    st.session_state.pop(f"pend::{page}", None)
-                    st.rerun()
+        st.caption("Drag the green box and its handles over a glyph (live), then ➕ Add. "
+                   "The box stays put so you can slide it to the next glyph and add again.")
+        box = st_cropper(Image.fromarray(overlay), realtime_update=True, box_color="#00cc00",
+                         return_type="box", should_resize_image=False, key=f"crop::{page}",
+                         default_coords=(20, 60, 20, 60))
+        if st.button("➕ Add this box", type="primary"):
+            x1b, y1b = max(0, box["left"] * factor), max(0, box["top"] * factor)
+            x2b = min(width, (box["left"] + box["width"]) * factor)
+            y2b = min(height, (box["top"] + box["height"]) * factor)
+            if x2b > x1b and y2b > y1b:
+                cls = guess_cls(image[int(y1b):int(y2b), int(x1b):int(x2b)]) if auto_guess else ""
+                snapshot()
+                boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
+                st.rerun()
     else:
         st.image(overlay, width=display_width,
                  caption=f"{page} — {len(boxes)} boxes (current panel page highlighted)")

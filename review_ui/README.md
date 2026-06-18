@@ -33,9 +33,10 @@ try correcting instead of drawing. Saved corrections always reload first.
    **glyph** of its assigned class. Fix the class by sight via the searchable
    picker, or **🗑** to delete a false positive. Use the group filter + panel
    paging for dense pages.
-4. **Add a missed glyph**: pick its class (glyph preview shown), tick
-   **Draw mode**, and **drag a rectangle** over it on the page. The drag maps to
-   true page pixels (no offset), so the box lands where you draw it.
+4. **Add a missed glyph**: tick **Draw mode**, drag the green resizable box (with
+   handles, live preview) over the glyph, then **➕ Add**. The box stays put so
+   you can slide it to the next glyph and add again. Auto-guess fills the class
+   from glyphs you've already labelled this session (repeats auto-fill).
 5. **Save page corrections** → `data/corrections/<page>/detections.yolo`.
 6. **Export YOLO dataset** → `data/datasets/review_export/` (images/labels +
    `dataset.yaml`), ready for detector training.
