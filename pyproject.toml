@@ -15,6 +15,7 @@ dependencies = [
     "pytesseract",
     "pyyaml",
     "streamlit",
+    "streamlit-drawable-canvas>=0.9.3",
     "ultralytics",
 ]
 
