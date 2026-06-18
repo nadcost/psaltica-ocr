@@ -10,6 +10,7 @@ without committing to a fixed threshold yet.
 from __future__ import annotations
 
 import json
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -176,6 +177,29 @@ def levenshtein(a: Sequence[object], b: Sequence[object]) -> int:
     return previous[-1]
 
 
+# Arabic base-letter normalization: collapse alef/ya/hamza-seat variants and
+# drop the tatweel (kashida) elongation so they don't count as errors.
+_ARABIC_FOLD = str.maketrans(
+    {"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ؤ": "و", "ئ": "ي", "ـ": ""}
+)
+
+
+def fold_for_scoring(text: str) -> str:
+    """Normalize away marks that base-letter gold should not be penalised for.
+
+    Removes combining marks (Greek accents/breathings, Arabic harakat), folds
+    Arabic alef/ya/hamza-seat variants and the tatweel, folds Greek final sigma,
+    and collapses whitespace. This isolates base-letter OCR accuracy from
+    diacritics the engine emits and from the print's arbitrary syllable spacing.
+    """
+
+    decomposed = unicodedata.normalize("NFD", text)
+    without_marks = "".join(char for char in decomposed if not unicodedata.combining(char))
+    folded = unicodedata.normalize("NFC", without_marks).translate(_ARABIC_FOLD)
+    folded = folded.replace("ς", "σ")
+    return " ".join(folded.split())
+
+
 def char_error_rate(predicted: str, expected: str) -> float:
     expected_n = normalize_text(expected)
     return _ratio(levenshtein(normalize_text(predicted), expected_n), len(expected_n))
@@ -214,15 +238,19 @@ def load_gold(path: Path) -> list[GoldPage]:
 def score_row(predicted: str, gold: GoldRow, image_path: str) -> RowScore:
     expected = normalize_text(gold.text)
     prediction = normalize_text(predicted)
+    # Distances are computed on diacritic-folded text (base-letter accuracy);
+    # the readable originals are kept on the row for the report.
+    exp = fold_for_scoring(expected)
+    pred = fold_for_scoring(prediction)
     return RowScore(
         image_path=image_path,
         script=gold.script,
         expected=expected,
         predicted=prediction,
-        char_distance=levenshtein(prediction, expected),
-        char_total=len(expected),
-        word_distance=levenshtein(prediction.split(), expected.split()),
-        word_total=len(expected.split()),
+        char_distance=levenshtein(pred, exp),
+        char_total=len(exp),
+        word_distance=levenshtein(pred.split(), exp.split()),
+        word_total=len(exp.split()),
     )
 
 

@@ -25,6 +25,7 @@ import numpy as np
 
 from psaltica_ocr.layout_segmentation import BoundingBox, LayoutRegion, PageLayout
 from psaltica_ocr.reading_order import Direction
+from psaltica_ocr.rendering import binarize
 
 
 Script = Literal["Greek", "Latin", "Arabic", "mixed", "unknown"]
@@ -188,6 +189,81 @@ def script_direction(script: Script) -> Direction:
     return "rtl" if script == "Arabic" else "ltr"
 
 
+def trim_to_text_band(crop: np.ndarray, *, pad: int = 4, min_ink_fraction: float = 0.02) -> tuple[np.ndarray, int]:
+    """Trim a row crop to its densest horizontal ink band.
+
+    Lyric rows are cropped with neume strokes bleeding into the top; those land
+    in a separate, sparser band above the lyric letters. Keeping only the band
+    with the most ink removes that bleed (the source of trailing ``.``/``|``
+    garbage tokens). Returns the trimmed crop and the y-offset applied so token
+    boxes can be mapped back to page coordinates.
+    """
+
+    if crop.size == 0:
+        return crop, 0
+    binary = binarize(crop)
+    row_ink = (binary > 0).sum(axis=1)
+    threshold = max(1.0, min_ink_fraction * crop.shape[1])
+    active = row_ink >= threshold
+    bands: list[tuple[int, int]] = []
+    start: int | None = None
+    for y, is_active in enumerate(active):
+        if is_active and start is None:
+            start = y
+        elif not is_active and start is not None:
+            bands.append((start, y))
+            start = None
+    if start is not None:
+        bands.append((start, len(active)))
+    if not bands:
+        return crop, 0
+
+    best = max(bands, key=lambda band: int(row_ink[band[0] : band[1]].sum()))
+    y1 = max(0, best[0] - pad)
+    y2 = min(crop.shape[0], best[1] + pad)
+    return crop[y1:y2], y1
+
+
+def syllable_spans(crop: np.ndarray, *, min_gap_ratio: float = 0.4, pad: int = 2) -> list[tuple[int, int]]:
+    """Split a row crop into x-spans at large inter-syllable gaps.
+
+    Syllabic lyric rows print each syllable with a wide gap that ``--psm 7``
+    reads as blank space. Splitting at gaps wider than ``min_gap_ratio`` of the
+    row height yields one span per syllable cluster, which can be OCR'd in
+    isolation and reused as per-syllable boxes for alignment. Normal running
+    text (small word gaps) stays as a single span.
+    """
+
+    if crop.size == 0:
+        return []
+    binary = binarize(crop)
+    col_ink = (binary > 0).sum(axis=0)
+    active = col_ink > 0
+    if not active.any():
+        return []
+    min_gap = max(6, int(crop.shape[0] * min_gap_ratio))
+
+    spans: list[tuple[int, int]] = []
+    start: int | None = None
+    gap = 0
+    for x, is_active in enumerate(active):
+        if is_active:
+            if start is None:
+                start = x
+            gap = 0
+        elif start is not None:
+            gap += 1
+            if gap > min_gap:
+                spans.append((start, x - gap + 1))
+                start = None
+                gap = 0
+    if start is not None:
+        spans.append((start, len(active) - gap if gap else len(active)))
+
+    width = crop.shape[1]
+    return [(max(0, a - pad), min(width, b + pad)) for a, b in spans]
+
+
 class LyricOcr:
     """Engine-independent lyric OCR adapter.
 
@@ -222,27 +298,51 @@ class LyricOcr:
         *,
         direction_hint: Direction | None = None,
         script_hint: Script | None = None,
+        segment: bool = False,
+        trim: bool = False,
     ) -> LyricLine:
         """OCR a single lyric row given the page image and the row's box.
 
         When ``script_hint`` is known (from book/layout context), only that
-        script's pack is run, which is both faster and avoids cross-script
-        confusion (e.g. the Latin pack transliterating Greek with comparable
-        confidence). Without a hint, the row is OCR'd once per pack and the most
-        confident result wins; script is then taken from the recognized text,
-        falling back to the winning pack when the text is non-alphabetic.
+        script's pack is run, which avoids cross-script confusion (e.g. the
+        Latin pack transliterating Greek). Without a hint, each pack is tried and
+        the most confident wins.
+
+        ``trim`` (crop to the lyric ink band) and ``segment`` (per-syllable OCR)
+        are opt-in and default off: on the real gold both lowered tesseract
+        accuracy — trimming removes glyph context, and isolated single-syllable
+        crops lose the line context tesseract relies on (see psaltica-ocr-408).
+        They are kept for a future glyph-level recognizer; ``segment`` also
+        yields per-syllable token boxes useful for alignment. With ``segment``,
+        syllables are OCR'd separately and joined in visual left-to-right order
+        (the order they are printed under the L->R neumes); the whole-row path
+        instead preserves RTL word ordering.
         """
 
         crop = image[bbox.y1 : bbox.y2, bbox.x1 : bbox.x2]
-        if script_hint in self.languages_by_script and script_hint in self.candidate_scripts:
-            direction = direction_hint or script_direction(script_hint)
-            raw = self.backend.run(crop, languages=self.languages_by_script[script_hint], direction=direction)
-            winning_script = script_hint
-        else:
-            winning_script, raw = self._best_candidate(crop, direction_hint)
+        cleaned, y_offset = trim_to_text_band(crop) if trim else (crop, 0)
 
-        raw_text = raw.text
-        text = normalize_text(raw_text)
+        if script_hint in self.candidate_scripts:
+            winning_script = script_hint
+            languages = self.languages_by_script[script_hint]
+            ocr_direction = direction_hint or script_direction(script_hint)
+        else:
+            winning_script, _ = self._best_candidate(cleaned, direction_hint)
+            languages = self.languages_by_script.get(winning_script, ALL_LANGUAGES)
+            ocr_direction = direction_hint or script_direction(winning_script)
+
+        spans = syllable_spans(cleaned) if segment else []
+        segmented = len(spans) >= 2
+        if segmented:
+            text, raw_text, confidence, tokens = self._recognize_syllables(
+                cleaned, spans, bbox, y_offset, languages, ocr_direction
+            )
+        else:
+            raw = self.backend.run(cleaned, languages=languages, direction=ocr_direction)
+            raw_text = raw.text
+            text = normalize_text(raw_text)
+            confidence = raw.confidence
+
         if script_hint in self.candidate_scripts:
             script = script_hint  # trust supplied context over text heuristic
         else:
@@ -250,23 +350,72 @@ class LyricOcr:
             script = detected if detected not in ("unknown", "mixed") else winning_script
         direction = direction_hint or script_direction(script)
 
-        boxes_from_geometry = not raw.words
-        if raw.words:
-            tokens = tuple(self._page_token(word, bbox) for word in raw.words)
+        if segmented:
+            boxes_from_geometry = False
+        elif raw.words:
+            tokens = tuple(self._page_token(word, bbox, y_offset) for word in raw.words)
+            boxes_from_geometry = False
         else:
-            tokens = self._geometry_tokens(text, raw_text, bbox, direction, raw.confidence)
+            tokens = self._geometry_tokens(text, raw_text, bbox, direction, confidence)
+            boxes_from_geometry = True
 
         return LyricLine(
             text=text,
             raw_text=raw_text,
             script=script,
             direction=direction,
-            confidence=raw.confidence,
+            confidence=confidence,
             bbox=bbox,
             engine=self.engine_name,
             tokens=tokens,
             boxes_from_geometry=boxes_from_geometry,
         )
+
+    def _recognize_syllables(
+        self,
+        cleaned: np.ndarray,
+        spans: list[tuple[int, int]],
+        bbox: BoundingBox,
+        y_offset: int,
+        languages: Sequence[str],
+        direction: Direction,
+    ) -> tuple[str, str, float, tuple[LyricToken, ...]]:
+        """OCR each syllable span in isolation; assemble in visual L->R order."""
+
+        tokens: list[LyricToken] = []
+        texts: list[str] = []
+        raw_texts: list[str] = []
+        confidences: list[float] = []
+        for x1, x2 in spans:
+            sub = cleaned[:, x1:x2]
+            raw = self.backend.run(sub, languages=languages, direction=direction)
+            syllable = raw.text.strip()
+            if not syllable:
+                continue  # empty span = neume speck, drop it
+            normalized = normalize_text(syllable)
+            page_bbox = BoundingBox(
+                bbox.x1 + x1,
+                bbox.y1 + y_offset,
+                bbox.x1 + x2,
+                bbox.y1 + y_offset + cleaned.shape[0],
+            )
+            tokens.append(
+                LyricToken(
+                    text=normalized,
+                    raw_text=syllable,
+                    bbox=page_bbox,
+                    confidence=raw.confidence,
+                    script=detect_script(normalized),
+                )
+            )
+            texts.append(normalized)
+            raw_texts.append(syllable)
+            confidences.append(raw.confidence)
+
+        text = " ".join(texts)
+        raw_text = " ".join(raw_texts)
+        confidence = float(np.mean(confidences)) if confidences else 0.0
+        return text, raw_text, confidence, tuple(tokens)
 
     def _best_candidate(
         self,
@@ -322,12 +471,12 @@ class LyricOcr:
         hint = region.text_direction if region.text_direction in ("ltr", "rtl") else None
         return self.recognize_line(image, region.bbox, direction_hint=hint)  # type: ignore[arg-type]
 
-    def _page_token(self, word: RawWord, bbox: BoundingBox) -> LyricToken:
+    def _page_token(self, word: RawWord, bbox: BoundingBox, y_offset: int = 0) -> LyricToken:
         page_bbox = BoundingBox(
             word.bbox.x1 + bbox.x1,
-            word.bbox.y1 + bbox.y1,
+            word.bbox.y1 + bbox.y1 + y_offset,
             word.bbox.x2 + bbox.x1,
-            word.bbox.y2 + bbox.y1,
+            word.bbox.y2 + bbox.y1 + y_offset,
         )
         text = normalize_text(word.text)
         return LyricToken(

@@ -17,6 +17,8 @@ from psaltica_ocr.lyric_ocr import (
     detect_script,
     normalize_text,
     script_direction,
+    syllable_spans,
+    trim_to_text_band,
 )
 from psaltica_ocr.lyric_ocr_audit import (
     AuditReport,
@@ -24,6 +26,7 @@ from psaltica_ocr.lyric_ocr_audit import (
     GoldRow,
     audit_gold,
     char_error_rate,
+    fold_for_scoring,
     levenshtein,
     load_gold,
     word_error_rate,
@@ -170,6 +173,51 @@ def test_audit_gold_buckets_by_script() -> None:
     assert by_script["Arabic"].word_accuracy == 0.0
     assert report.engine == "fake"
     assert report.to_dict()["overall"]["word_accuracy"] < 1.0
+
+
+def test_fold_for_scoring_strips_diacritics_and_normalizes() -> None:
+    # Greek accents/breathings removed; final sigma folded.
+    assert fold_for_scoring("Κύριε ἐλέησον") == "Κυριε ελεησον"
+    assert fold_for_scoring("λόγος") == "λογοσ"
+    # Arabic harakat removed, alef/ya/hamza-seat variants folded, tatweel dropped.
+    assert fold_for_scoring("لِتَرْ") == "لتر"
+    assert fold_for_scoring("أحمد") == "احمد"
+    assert fold_for_scoring("صلاـتي") == "صلاتي"
+    # Whitespace collapsed.
+    assert fold_for_scoring("a   b\tc") == "a b c"
+
+
+def test_trim_to_text_band_keeps_densest_band() -> None:
+    crop = np.full((60, 120), 255, dtype=np.uint8)
+    crop[2:5, 40:46] = 0  # sparse neume speck near the top
+    crop[30:44, 5:115] = 0  # dense lyric band lower down
+    trimmed, y_offset = trim_to_text_band(crop, pad=2)
+    assert 24 <= y_offset <= 30
+    assert trimmed.shape[0] < crop.shape[0]
+    # The dense band survives; the top speck is trimmed away.
+    assert (trimmed < 128).sum() > 100
+
+
+def test_trim_to_text_band_blank_crop_is_unchanged() -> None:
+    crop = np.full((20, 50), 255, dtype=np.uint8)
+    trimmed, y_offset = trim_to_text_band(crop)
+    assert y_offset == 0
+    assert trimmed.shape == crop.shape
+
+
+def test_syllable_spans_splits_on_wide_gaps() -> None:
+    crop = np.full((20, 120), 255, dtype=np.uint8)
+    crop[5:15, 0:12] = 0
+    crop[5:15, 70:82] = 0  # gap of ~58px >> min_gap
+    spans = syllable_spans(crop)
+    assert len(spans) == 2
+    assert spans[0][0] < spans[1][0]
+
+
+def test_syllable_spans_single_block_when_continuous() -> None:
+    crop = np.full((20, 120), 255, dtype=np.uint8)
+    crop[5:15, 5:115] = 0
+    assert len(syllable_spans(crop)) == 1
 
 
 def test_tesseract_backend_falls_back_to_psm6_when_psm7_empty(monkeypatch) -> None:
