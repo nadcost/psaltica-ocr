@@ -131,8 +131,9 @@ def main() -> None:
     with st.sidebar:
         st.header("Page")
         image_path = st.selectbox("Page", pages, format_func=rio.page_key)
-        display_width = st.slider("Overlay width (px)", 500, 1500, 900, 50,
-                                  help="Visual only — the overlay is a static image, no click mapping.")
+        display_width = st.slider("🔍 Zoom — page width (px)", 600, 3200, 1100, 100,
+                                  help="Increase to zoom in: the page (and the draw box) render larger and "
+                                       "the page scrolls, so you can place boxes precisely.")
         group_filter = st.selectbox("Class group filter", ["(all)"] + sorted(rio.GROUP_COLORS))
         per_view = st.slider("Boxes per panel page", 10, 60, 20, 5)
         saved = sorted(p.name for p in DEFAULT_CORRECTIONS.glob("*") if (p / "detections.yolo").exists())
