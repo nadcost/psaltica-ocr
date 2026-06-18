@@ -17,9 +17,15 @@ It expects (defaults, all under the repo):
   page just starts empty without it).
 - `config/classes.yaml`, `config/symbol_map.json` — class list and glyphs.
 
-## Workflow (correction-first, canvas-free)
+## Workflow (canvas-free)
 
-1. Pick a page in the sidebar. Predicted boxes (or your saved corrections) load.
+Pages start **empty** (from scratch): tick **Draw mode**, pick a class, and drag
+boxes. The autolabel template-matcher over-detects badly (hundreds of wrong
+`base_neume` boxes per page), so it is opt-in — the sidebar
+**"Load autolabel predictions"** button pulls them in for a page if you want to
+try correcting instead of drawing. Saved corrections always reload first.
+
+1. Pick a page in the sidebar (it loads your saved corrections, or empty).
 2. The left pane shows the page with every box overlaid and numbered — a static
    image, so there is **no click-coordinate offset**. The boxes for the current
    panel page are drawn thicker.

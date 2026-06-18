@@ -62,12 +62,16 @@ def _load_pages(pages_file: Path) -> list[str]:
     return [line.strip() for line in pages_file.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def _initial_boxes(image_path: str, width: int, height: int, classes: list[str], preds: dict) -> list[rio.Box]:
-    saved = rio.load_page_detections(DEFAULT_CORRECTIONS, image_path, classes, width, height)
-    if saved is not None:
-        return saved
+def _prediction_boxes(image_path: str, width: int, height: int, preds: dict) -> list[rio.Box]:
     key = image_path if image_path in preds else next((k for k in preds if k.endswith(Path(image_path).name)), None)
     return rio.boxes_from_ls_results(preds.get(key, []), width, height) if key else []
+
+
+def _initial_boxes(image_path: str, width: int, height: int, classes: list[str]) -> list[rio.Box]:
+    # Saved corrections resume; otherwise start empty (from scratch). Autolabel
+    # predictions are opt-in per page because template matching over-detects.
+    saved = rio.load_page_detections(DEFAULT_CORRECTIONS, image_path, classes, width, height)
+    return saved if saved is not None else []
 
 
 def _hex_to_bgr(color: str) -> tuple[int, int, int]:
@@ -119,8 +123,19 @@ def main() -> None:
 
     box_key = f"boxes::{page}"
     if box_key not in st.session_state:
-        st.session_state[box_key] = _initial_boxes(image_path, width, height, classes, preds)
+        st.session_state[box_key] = _initial_boxes(image_path, width, height, classes)
     boxes: list[rio.Box] = st.session_state[box_key]
+
+    with st.sidebar:
+        st.divider()
+        n_pred = len(_prediction_boxes(image_path, width, height, preds))
+        if st.button(f"Load autolabel predictions ({n_pred})", disabled=n_pred == 0,
+                     help="Template-match boxes — they over-detect, so from-scratch is often easier."):
+            st.session_state[box_key] = _prediction_boxes(image_path, width, height, preds)
+            st.rerun()
+        if st.button("Clear all boxes on this page"):
+            st.session_state[box_key] = []
+            st.rerun()
 
     indices = [i for i in range(len(boxes)) if group_filter == "(all)" or boxes[i].group == group_filter]
     total_views = max(1, (len(indices) + per_view - 1) // per_view)
