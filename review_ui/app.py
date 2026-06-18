@@ -110,7 +110,12 @@ def main() -> None:
             st.error(f"No pages listed in {DEFAULT_PAGES_FILE}")
             st.stop()
         image_path = st.selectbox("Page", pages, format_func=lambda p: rio.page_key(p))
-        display_width = st.slider("Display width (px)", 700, 1600, 1000, 50)
+        display_width = st.slider(
+            "Display width (px)", 600, 1200, 800, 20,
+            help="If a newly drawn box lands offset from your cursor, the window is "
+                 "narrower than this and the browser is scaling the canvas — lower this "
+                 "until boxes land where you click.",
+        )
         group_filter = st.selectbox("Class group filter", ["(all)"] + sorted(rio.GROUP_COLORS))
         per_view = st.slider("Boxes per panel page", 10, 60, 25, 5)
         saved_pages = sorted(p.name for p in DEFAULT_CORRECTIONS.glob("*/") if (p / "detections.yolo").exists())
@@ -173,12 +178,15 @@ def main() -> None:
         crop = image[max(0, int(box.y1)): int(box.y2), max(0, int(box.x1)): int(box.x2)]
         if crop.size:
             cols[0].image(crop, caption=f"#{i}", width=80)
-        uri = _glyph_uri(stored[i], str(DEFAULT_SYMBOL_MAP)) if stored[i] else None
+        default = classes.index(stored[i]) if stored[i] in classes else 0
+        # Read the selection first, then render its glyph in the same run — so
+        # the glyph reflects what was just picked (not the previous value).
+        selection = cols[2].selectbox(f"class #{i}", classes, index=default, key=f"cls::{page}::{i}",
+                                      label_visibility="collapsed")
+        stored[i] = selection
+        uri = _glyph_uri(selection, str(DEFAULT_SYMBOL_MAP))
         if uri:
             cols[1].markdown(f"<img src='{uri}' width='56'>", unsafe_allow_html=True)
-        default = classes.index(stored[i]) if stored[i] in classes else 0
-        stored[i] = cols[2].selectbox(f"class #{i}", classes, index=default, key=f"cls::{page}::{i}",
-                                      label_visibility="collapsed")
     st.session_state[state_key] = stored
 
     # ---- actions ----
