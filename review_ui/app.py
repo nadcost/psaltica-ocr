@@ -241,8 +241,11 @@ def main() -> None:
 
         region = _region_overlay(image, boxes, pan_x, pan_y, vw, vh)
         st.caption("Zoom/pan with the sliders, drag the green box over a glyph, then ➕ Add.")
+        # Include the viewport in the key so the cropper re-mounts when you
+        # zoom/pan (it ignores image changes under a fixed key).
         box = st_cropper(Image.fromarray(region), realtime_update=True, box_color="#00cc00",
-                         return_type="box", should_resize_image=False, key=f"crop::{page}",
+                         return_type="box", should_resize_image=False,
+                         key=f"crop::{page}::{zoom}::{pan_x}::{pan_y}",
                          default_coords=(10, 50, 10, 50))
         if st.button("➕ Add this box", type="primary"):
             x1b, y1b = pan_x + max(0, box["left"]), pan_y + max(0, box["top"])
