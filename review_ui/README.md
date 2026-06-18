@@ -41,6 +41,25 @@ try correcting instead of drawing. Saved corrections always reload first.
 6. **Export YOLO dataset** → `data/datasets/review_export/` (images/labels +
    `dataset.yaml`), ready for detector training.
 
+## Drawing boxes: use makesense.ai (zoom/pan), classify here
+
+Streamlit has no reliable pan/zoom box-drawing component (the canvas mis-scales
+clicks on HiDPI; the cropper fits-to-container and can't pan). For dense
+300-DPI pages, draw boxes in **makesense.ai** instead, then classify them here:
+
+1. Open https://www.makesense.ai → **Object Detection**, drop the page image(s)
+   (they stay local in the browser).
+2. Import labels from `config/makesense_labels.txt` (order matches our 179-class
+   taxonomy, so exported indices are correct).
+3. Draw boxes with scroll-zoom + drag-pan. Label precisely, or coarsely/by
+   group if you'd rather classify here.
+4. **Export → YOLO**. Keep `data/reference_sheet.html` open to look up glyph
+   names while labelling.
+
+To finish classification here with the glyph picker + auto-guess, import the
+makesense YOLO export into `data/corrections/` and review per box (no drawing
+needed). The whole-page draw/zoom flow below remains for light touch-ups.
+
 ## Notes / v1 limits
 
 - Box geometry uses `streamlit-image-coordinates` (click/drag → real image
