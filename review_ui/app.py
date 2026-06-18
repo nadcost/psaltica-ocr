@@ -187,7 +187,9 @@ def main() -> None:
 
     c_draw, c_guess = st.columns(2)
     draw_mode = c_draw.checkbox("✏️ Draw mode — click two opposite corners of a glyph")
-    auto_guess = c_guess.checkbox("🔮 Auto-guess class", value=bool(descriptors))
+    auto_guess = c_guess.checkbox("🔮 Auto-guess class", value=False,
+                                  help="Font-glyph match — unreliable on the printed typeface until it "
+                                       "learns from your labels. Off by default; use per-box 🔮 to try it.")
     new_cls = st.selectbox("Fallback class (when auto-guess is off/unsure)", classes, key="add_cls")
     glyph = _glyph_uri(new_cls, str(DEFAULT_SYMBOL_MAP))
     if glyph:

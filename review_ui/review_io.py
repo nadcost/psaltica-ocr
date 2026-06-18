@@ -83,10 +83,23 @@ GLYPH_DESC_SIZE = 48
 
 
 def _descriptor(gray: np.ndarray, size: int = GLYPH_DESC_SIZE) -> np.ndarray:
-    """Shape descriptor: edge-gradient of the glyph resized to a square."""
+    """Shape descriptor: trim to ink, pad to square (keep aspect), edge-gradient.
+
+    Trimming whitespace and padding (instead of stretching the raw crop to a
+    square) makes a hand-drawn crop and a glyph comparable regardless of how
+    much empty space the box includes or the glyph's aspect ratio.
+    """
     from psaltica_ocr.template_matching import to_gradient
 
-    resized = cv2.resize(gray, (size, size), interpolation=cv2.INTER_AREA)
+    _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)  # ink = 0
+    ys, xs = np.where(binary == 0)
+    if len(xs):
+        binary = binary[ys.min(): ys.max() + 1, xs.min(): xs.max() + 1]
+    h, w = binary.shape
+    side = max(h, w, 1)
+    square = np.full((side, side), 255, np.uint8)
+    square[(side - h) // 2: (side - h) // 2 + h, (side - w) // 2: (side - w) // 2 + w] = binary
+    resized = cv2.resize(square, (size, size), interpolation=cv2.INTER_AREA)
     return to_gradient(resized).astype(np.float32)
 
 
@@ -115,8 +128,7 @@ def guess_class(
     """Best-matching class for a box crop (normalized gradient correlation)."""
     if crop_gray is None or crop_gray.size == 0 or not descriptors:
         return None, 0.0
-    _, binary = cv2.threshold(crop_gray, 200, 255, cv2.THRESH_BINARY)
-    crop_desc = _descriptor(binary, size)
+    crop_desc = _descriptor(crop_gray, size)
     best_cls, best_score = None, -2.0
     for cls, desc in descriptors.items():
         score = float(cv2.matchTemplate(crop_desc, desc, cv2.TM_CCOEFF_NORMED)[0, 0])
