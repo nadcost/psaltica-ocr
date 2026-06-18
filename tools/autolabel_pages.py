@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--pages", nargs="+", type=Path, help="Specific page image paths")
+    group.add_argument("--pages-file", type=Path, help="File with one page image path per line")
     group.add_argument("--book", help="Book ID — match all pages in data/pages/<book>/")
     parser.add_argument("--pages-per-book", type=int, default=0,
                         help="Limit pages when using --book (0 = all)")
@@ -117,6 +118,9 @@ def process_page(
 def collect_pages(args: argparse.Namespace) -> list[Path]:
     if args.pages:
         return [p for p in args.pages if p.exists()]
+    if args.pages_file:
+        lines = args.pages_file.read_text(encoding="utf-8").splitlines()
+        return [Path(line.strip()) for line in lines if line.strip() and Path(line.strip()).exists()]
     book_dir = Path("data/pages") / args.book
     pages = sorted(book_dir.glob("page_*.png"))
     if args.pages_per_book:
