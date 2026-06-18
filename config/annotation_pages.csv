@@ -1,0 +1,51 @@
+rank,book,page,image_path,scripts,layout_type,chant_rows,lyric_rows,voice_ratio,multi_voice?,n_classes,cumulative_classes
+1,Holy Week,110,data/pages_full/Holy Week/page_0110.png,Arabic+Greek,dense_multi_row,6,6,1.0,,29,29
+2,Holy Week,277,data/pages_full/Holy Week/page_0277.png,Arabic+Latin,dense_multi_row,10,10,1.0,,31,38
+3,Holy Week,109,data/pages_full/Holy Week/page_0109.png,Arabic+Greek+Latin,dense_multi_row,6,6,1.0,,26,41
+4,Holy Week,279,data/pages_full/Holy Week/page_0279.png,Greek+Latin,dense_multi_row,5,5,1.0,,30,44
+5,Holy Week,278,data/pages_full/Holy Week/page_0278.png,Greek+Latin,dense_multi_row,11,11,1.0,,34,49
+6,Mass,445,data/pages_full/Mass/page_0445.png,Greek+Latin,dense_multi_row,5,5,1.0,,34,56
+7,Holy Week,185,data/pages_full/Holy Week/page_0185.png,Arabic+Greek+Latin,dense_multi_row,6,6,1.0,,29,59
+8,Mass,449,data/pages_full/Mass/page_0449.png,Arabic+Greek,dense_multi_row,6,5,1.2,,37,62
+9,Mass,124,data/pages_full/Mass/page_0124.png,Arabic+Greek+Latin,dense_multi_row,5,4,1.25,,29,63
+10,Mass,417,data/pages_full/Mass/page_0417.png,Greek+Latin,dense_multi_row,8,7,1.14,,30,65
+11,Mass,208,data/pages_full/Mass/page_0208.png,Arabic+Greek,dense_multi_row,5,5,1.0,,31,66
+12,Mass,427,data/pages_full/Mass/page_0427.png,Arabic+Greek+Latin,dense_multi_row,5,5,1.0,,30,67
+13,Mass,86,data/pages_full/Mass/page_0086.png,Arabic+Greek,dense_multi_row,6,6,1.0,,29,68
+14,Mass,126,data/pages_full/Mass/page_0126.png,Arabic+Greek,dense_multi_row,8,8,1.0,,31,69
+15,Mass,125,data/pages_full/Mass/page_0125.png,Arabic+Greek,dense_multi_row,8,5,1.6,yes,29,70
+16,Holy Week,317,data/pages_full/Holy Week/page_0317.png,Arabic+Greek+Latin,dense_multi_row,4,4,1.0,,20,71
+17,Holy Week,195,data/pages_full/Holy Week/page_0195.png,Arabic+Greek+Latin,dense_multi_row,6,6,1.0,,32,72
+18,Mass,9,data/pages_full/Mass/page_0009.png,Arabic+Greek,dense_multi_row,5,5,1.0,,26,72
+19,Mass,458,data/pages_full/Mass/page_0458.png,Arabic+Latin,dense_multi_row,6,6,1.0,,34,72
+20,Mass,70,data/pages_full/Mass/page_0070.png,Arabic+Latin,dense_multi_row,6,6,1.0,,31,72
+21,Holy Week,397,data/pages_full/Holy Week/page_0397.png,Arabic+Latin,dense_multi_row,7,7,1.0,,36,72
+22,Holy Week,227,data/pages_full/Holy Week/page_0227.png,Arabic+Latin,dense_multi_row,5,5,1.0,,28,72
+23,Holy Week,22,data/pages_full/Holy Week/page_0022.png,Arabic+Latin,dense_multi_row,4,4,1.0,,21,72
+24,Holy Week,65,data/pages_full/Holy Week/page_0065.png,Arabic+Greek,dense_multi_row,7,7,1.0,,27,72
+25,Mass,469,data/pages_full/Mass/page_0469.png,Arabic+Latin,dense_multi_row,7,5,1.4,,31,72
+26,Mass,68,data/pages_full/Mass/page_0068.png,Arabic+Greek,dense_multi_row,8,8,1.0,,30,72
+27,Mass,51,data/pages_full/Mass/page_0051.png,Arabic+Greek,dense_multi_row,4,4,1.0,,29,72
+28,Mass,60,data/pages_full/Mass/page_0060.png,Arabic+Greek,dense_multi_row,6,5,1.2,,28,72
+29,Mass,477,data/pages_full/Mass/page_0477.png,Greek+Latin,dense_multi_row,7,7,1.0,,31,72
+30,Mass,391,data/pages_full/Mass/page_0391.png,Arabic+Greek,dense_multi_row,6,4,1.5,,34,72
+31,Mass,74,data/pages_full/Mass/page_0074.png,Greek+Latin,dense_multi_row,6,6,1.0,,29,72
+32,Mass,10,data/pages_full/Mass/page_0010.png,Arabic+Greek,dense_multi_row,7,7,1.0,,30,72
+33,Mass,464,data/pages_full/Mass/page_0464.png,Arabic+Latin,dense_multi_row,7,7,1.0,,36,72
+34,Mass,435,data/pages_full/Mass/page_0435.png,Arabic+Greek,dense_multi_row,7,6,1.17,,31,72
+35,Mass,104,data/pages_full/Mass/page_0104.png,Arabic+Greek,dense_multi_row,6,6,1.0,,30,72
+36,Mass,492,data/pages_full/Mass/page_0492.png,Arabic+Latin,dense_multi_row,8,6,1.33,,28,72
+37,Mass,493,data/pages_full/Mass/page_0493.png,Arabic+Greek,dense_multi_row,6,6,1.0,,27,72
+38,Mass,419,data/pages_full/Mass/page_0419.png,Greek+Latin,dense_multi_row,6,6,1.0,,33,72
+39,Mass,139,data/pages_full/Mass/page_0139.png,Arabic+Greek+Latin,dense_multi_row,7,7,1.0,,28,72
+40,Mass,162,data/pages_full/Mass/page_0162.png,Arabic+Latin,dense_multi_row,8,8,1.0,,29,72
+41,Mass,83,data/pages_full/Mass/page_0083.png,Greek+Latin,dense_multi_row,4,4,1.0,,34,72
+42,Mass,163,data/pages_full/Mass/page_0163.png,Arabic+Greek,dense_multi_row,8,8,1.0,,29,72
+43,Mass,180,data/pages_full/Mass/page_0180.png,Arabic+Greek,dense_multi_row,7,7,1.0,,31,72
+44,Mass,146,data/pages_full/Mass/page_0146.png,Arabic+Greek,dense_multi_row,6,6,1.0,,32,72
+45,Mass,165,data/pages_full/Mass/page_0165.png,Arabic+Greek,dense_multi_row,9,8,1.12,,32,72
+46,Holy Week,274,data/pages_full/Holy Week/page_0274.png,Arabic+Greek+Latin,dense_multi_row,4,4,1.0,,21,72
+47,Holy Week,207,data/pages_full/Holy Week/page_0207.png,Arabic+Latin,dense_multi_row,4,4,1.0,,23,72
+48,Holy Week,237,data/pages_full/Holy Week/page_0237.png,Arabic+Latin,dense_multi_row,9,9,1.0,,23,72
+49,Holy Week,236,data/pages_full/Holy Week/page_0236.png,Arabic+Latin,dense_multi_row,6,6,1.0,,21,72
+50,Holy Week,324,data/pages_full/Holy Week/page_0324.png,Arabic+Greek,dense_multi_row,6,6,1.0,,26,72

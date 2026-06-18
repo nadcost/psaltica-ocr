@@ -73,6 +73,17 @@ class PageFeatures:
         return f"{self.book}:{'front' if self.page_number < 200 else 'mid' if self.page_number < 600 else 'back'}"
 
     @property
+    def voice_ratio(self) -> float:
+        # SATB/multi-voice pages stack several music rows over one shared lyric
+        # row, so chant rows far outnumber lyric rows. A high ratio flags pages
+        # that are out of scope for this monophonic OCR version.
+        return self.chant_rows / self.lyric_rows if self.lyric_rows else float(self.chant_rows)
+
+    @property
+    def likely_multi_voice(self) -> bool:
+        return self.lyric_rows > 0 and self.voice_ratio >= 1.6
+
+    @property
     def structural_score(self) -> float:
         return (
             min(self.chant_rows, 4) * 2.0
@@ -96,7 +107,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-coverage", action="store_true", help="Skip the slow template/script probe")
     parser.add_argument("--refresh", action="store_true", help="Recompute caches")
     parser.add_argument("--limit", type=int, default=0, help="Process only the first N manifest rows (debug)")
+    parser.add_argument("--exclude", default="", help="Drop pages, e.g. 'Mass:53;Holy Week:337'")
+    parser.add_argument("--force-include", default="", help="Always select these pages, e.g. 'Holy Week:277;Holy Week:278'")
     return parser.parse_args()
+
+
+def parse_page_set(spec: str) -> set[tuple[str, int]]:
+    pages: set[tuple[str, int]] = set()
+    for entry in spec.split(";"):
+        entry = entry.strip()
+        if not entry:
+            continue
+        book, page = entry.rsplit(":", 1)
+        pages.add((book.strip(), int(page)))
+    return pages
 
 
 def load_manifest(path: Path, limit: int) -> list[PageFeatures]:
@@ -174,6 +198,7 @@ def spread_shortlist(candidates: list[PageFeatures], size: int) -> list[PageFeat
 
 def run_stage_b(shortlist: list[PageFeatures], args: argparse.Namespace) -> None:
     cache_path = args.probe_cache
+    cached: dict[str, dict] = {}
     if cache_path.exists() and not args.refresh:
         cached = {row["image_path"]: row for row in json.loads(cache_path.read_text())}
         for page in shortlist:
@@ -181,9 +206,12 @@ def run_stage_b(shortlist: list[PageFeatures], args: argparse.Namespace) -> None
             if data:
                 page.classes = data.get("classes", [])
                 page.scripts = data.get("scripts", [])
-        if all(page.classes or page.scripts for page in shortlist):
-            print(f"Stage B: loaded {len(shortlist)} probes from cache")
-            return
+
+    missing = [page for page in shortlist if page.image_path not in cached]
+    if not missing:
+        print(f"Stage B: loaded {len(shortlist)} probes from cache")
+        return
+    print(f"Stage B: probing {len(missing)} new pages ({len(shortlist) - len(missing)} cached)")
 
     from psaltica_ocr.template_matching import (
         NMS_IOU_THRESHOLD,
@@ -196,7 +224,7 @@ def run_stage_b(shortlist: list[PageFeatures], args: argparse.Namespace) -> None
     templates = build_templates(classes, load_symbol_map(args.symbol_map), sizes_pt=[7.5, 9.0])
     script_probe = _make_script_probe()
 
-    for index, page in enumerate(shortlist, 1):
+    for index, page in enumerate(missing, 1):
         image = cv2.imread(page.image_path, cv2.IMREAD_GRAYSCALE)
         if image is None:
             continue
@@ -206,16 +234,13 @@ def run_stage_b(shortlist: list[PageFeatures], args: argparse.Namespace) -> None
         page.classes = sorted({label for *_, label in kept})
         if script_probe is not None:
             page.scripts = script_probe(image, page)
-        print(f"Stage B: [{index}/{len(shortlist)}] {Path(page.image_path).name}: {len(page.classes)} classes, {page.scripts}")
+        print(f"Stage B: [{index}/{len(missing)}] {Path(page.image_path).name}: {len(page.classes)} classes, {page.scripts}")
 
+    merged = dict(cached)
+    for page in shortlist:
+        merged[page.image_path] = {"image_path": page.image_path, "classes": page.classes, "scripts": page.scripts}
     cache_path.parent.mkdir(parents=True, exist_ok=True)
-    cache_path.write_text(
-        json.dumps(
-            [{"image_path": p.image_path, "classes": p.classes, "scripts": p.scripts} for p in shortlist],
-            ensure_ascii=False,
-            indent=1,
-        )
-    )
+    cache_path.write_text(json.dumps(list(merged.values()), ensure_ascii=False, indent=1))
     print(f"Stage B: wrote {cache_path}")
 
 
@@ -246,13 +271,28 @@ def _make_script_probe():
     return probe
 
 
-def greedy_select(candidates: list[PageFeatures], count: int) -> list[tuple[PageFeatures, int]]:
+def greedy_select(
+    candidates: list[PageFeatures],
+    count: int,
+    forced: list[PageFeatures] | None = None,
+) -> list[tuple[PageFeatures, int]]:
     covered_classes: set[str] = set()
     script_counts: Counter[str] = Counter()
     layout_counts: Counter[str] = Counter()
     section_counts: Counter[str] = Counter()
-    remaining = list(candidates)
     selected: list[tuple[PageFeatures, int]] = []
+    forced = forced or []
+    forced_keys = {(p.book, p.page_number) for p in forced}
+    remaining = [p for p in candidates if (p.book, p.page_number) not in forced_keys]
+
+    # Seed with the user's must-have pages, then greedily fill the rest.
+    for page in forced:
+        covered_classes.update(page.classes)
+        for script in page.scripts:
+            script_counts[script] += 1
+        layout_counts[page.layout_type] += 1
+        section_counts[page.section] += 1
+        selected.append((page, len(covered_classes)))
 
     def gain(page: PageFeatures) -> tuple[float, int]:
         new_classes = len(set(page.classes) - covered_classes)
@@ -283,12 +323,14 @@ def write_output(selected: list[tuple[PageFeatures, int]], shortlist: list[PageF
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(
-            ["rank", "book", "page", "image_path", "scripts", "layout_type", "chant_rows", "lyric_rows", "n_classes", "cumulative_classes"]
+            ["rank", "book", "page", "image_path", "scripts", "layout_type", "chant_rows",
+             "lyric_rows", "voice_ratio", "multi_voice?", "n_classes", "cumulative_classes"]
         )
         for rank, (page, cumulative) in enumerate(selected, 1):
             writer.writerow(
                 [rank, page.book, page.page_number, page.image_path, "+".join(page.scripts) or "?",
-                 page.layout_type, page.chant_rows, page.lyric_rows, len(page.classes), cumulative]
+                 page.layout_type, page.chant_rows, page.lyric_rows, round(page.voice_ratio, 2),
+                 "yes" if page.likely_multi_voice else "", len(page.classes), cumulative]
             )
     json_path = output.with_suffix(".json")
     json_path.write_text(
@@ -311,15 +353,31 @@ def main() -> None:
     print(f"manifest: {len(pages)} pages")
     run_stage_a(pages, args.features_cache, args.refresh)
 
-    candidates = [page for page in pages if page.is_candidate]
-    print(f"candidates after blank/prose filter: {len(candidates)}")
+    exclude = parse_page_set(args.exclude)
+    force = parse_page_set(args.force_include)
+    by_key = {(p.book, p.page_number): p for p in pages}
+
+    candidates = [
+        page for page in pages if page.is_candidate and (page.book, page.page_number) not in exclude
+    ]
+    print(f"candidates after blank/prose filter and {len(exclude)} excluded: {len(candidates)}")
     shortlist = spread_shortlist(candidates, args.shortlist)
-    print(f"shortlist: {len(shortlist)} pages")
+
+    forced: list[PageFeatures] = []
+    for key in force:
+        page = by_key.get(key)
+        if page is None:
+            print(f"force-include {key}: not in manifest, skipping")
+            continue
+        forced.append(page)
+        if page not in shortlist:
+            shortlist.append(page)  # ensure it gets probed
+    print(f"shortlist: {len(shortlist)} pages ({len(forced)} forced)")
 
     if not args.no_coverage:
         run_stage_b(shortlist, args)
 
-    selected = greedy_select(shortlist, args.count)
+    selected = greedy_select(shortlist, args.count, forced=forced)
     write_output(selected, shortlist, args.output)
 
 
