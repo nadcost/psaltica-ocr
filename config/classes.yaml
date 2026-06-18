@@ -9,7 +9,7 @@ names:
 - mode.VouKey
 - mode.KeKey
 - mode.PaKeyMinore
-- mode.PaKeyHijaz
+- mode.PaKeyChromDure
 - mode.ZoKeyDown
 - mode.NiKey
 - mode.PaKeyFrios
@@ -41,8 +41,30 @@ names:
 - base_neume.Plus6
 - base_neume.Plus7
 - base_neume.Plus8
+- base_neume.Plus9
+- base_neume.Plus10
 - base_neume.Kendimata
 - base_neume.Petasti
+- base_neume.PetastiIsson
+- base_neume.PetastiOligon
+- base_neume.PetastiKendima
+- base_neume.PetastiIpsili
+- base_neume.PetastiPlus5
+- base_neume.PetastiPlus6
+- base_neume.PetastiPlus7
+- base_neume.PetastiPlus8
+- base_neume.PetastiPlus9
+- base_neume.PetastiPlus10
+- base_neume.PetastiApostrophos
+- base_neume.PetastiElaphron
+- base_neume.PetastiMinus3
+- base_neume.PetastiMinus4
+- base_neume.PetastiMinus5
+- base_neume.PetastiMinus6
+- base_neume.PetastiMinus7
+- base_neume.PetastiMinus8
+- base_neume.PetastiMinus9
+- base_neume.Varia
 - base_neume.OnePlusOneUp
 - base_neume.OnePlusOneDn
 - base_neume.Apostrofos
@@ -53,6 +75,8 @@ names:
 - base_neume.Minus6
 - base_neume.Minus7
 - base_neume.Minus8
+- base_neume.Minus9
+- base_neume.Minus10
 - base_neume.Iporoi
 - base_neume.Stavros
 - rest.Siopi1
@@ -72,6 +96,12 @@ names:
 - modifier_gorgon.Ifesis
 - modifier_gorgon.Diesis
 - modifier_gorgon.HalfDiesis
+- modifier_gorgon.HalfIfesis
+- modifier_gorgon.ThirdIfesis
+- modifier_gorgon.Psifiston
+- modifier_gorgon.Omalon
+- modifier_gorgon.Antikenoma
+- modifier_gorgon.Eteron
 - modifier_isson.Pa
 - modifier_isson.Vou
 - modifier_isson.Gha
@@ -81,51 +111,75 @@ names:
 - modifier_isson.Ni
 - modifier_isson.Melo
 - key_signature.DhiKey(Down)
+- key_signature.DhiKey2
+- key_signature.DhiKeyKliton
+- key_signature.DhiKey
 - key_signature.DhiKeyChromDoux
+- key_signature.DhiKeyChromDouxTetr
 - key_signature.DhiKeyZygos
 - key_signature.DhiKeyChromDure(Down)
+- key_signature.DhiKeyChromDure2
 - key_signature.DhiKeyChrom
 - key_signature.DhiKeyDiatonic(Down)
 - key_signature.DhiKeyDiatonic
 - key_signature.GhaKey(Down)
 - key_signature.GhaKey
+- key_signature.GhaKeyDiatonic
+- key_signature.GhaKeyKliton
 - key_signature.GhaKey8em
+- key_signature.GhaKeyOctave
 - key_signature.GhaKeyChromDoux
 - key_signature.GhaKeyChromDouxTetr
 - key_signature.GhaKeyChromDure
+- key_signature.GhaKeyChromDure2
 - key_signature.KeKey(Down)
 - key_signature.KeKey
+- key_signature.KeKey2
 - key_signature.KeKey8em
 - key_signature.KeKeyChromDoux
 - key_signature.KeKeyChromDouxTetr
 - key_signature.KeKeyChromDouxTetrWithFthora
 - key_signature.KeKeyChromDure(Down)
 - key_signature.KeKeyChromDure
+- key_signature.KeKeyChromDure2
 - key_signature.NiKey
 - key_signature.NiKeyChromDoux
 - key_signature.NiKeyChromDouxSup
+- key_signature.NiKeyChromDouxOctave
+- key_signature.NiKeyChromDure
 - key_signature.NiKeyChromDure(Sup)
+- key_signature.NiKeyChromDure2
 - key_signature.NiKeyMinore
+- key_signature.NiKeyMinore2
 - key_signature.NiKeyOctave
 - key_signature.PaKey
 - key_signature.PaKeyChromDoux
+- key_signature.PaKeyChromDouxSup
 - key_signature.PaKeyChromDouxTetr
 - key_signature.PaKeyChromDure
+- key_signature.PaKeyChromDure2
 - key_signature.PaKeyChromDureSup
 - key_signature.PaKeyFrios
 - key_signature.PaKeyFriosSup
 - key_signature.PaKeyMinore
+- key_signature.PaKeyMinoreOctave
 - key_signature.PaKeyOctave
 - key_signature.VouKey
+- key_signature.VouKeyOctave
 - key_signature.VouKeyAjam
+- key_signature.VouKeyKliton
 - key_signature.VouKeyChromDoux
+- key_signature.VouKeyChromDouxTetr
+- key_signature.VouKeyChromDure2
 - key_signature.VouKeyZygos
 - key_signature.VouKeyChromDure
 - key_signature.VouKeyMinore
+- key_signature.VouKeyMinoreOctave
 - key_signature.ZoKeyDown
 - key_signature.KeyAjamZo
 - key_signature.ZoKeyAjamOctave
 - key_signature.ZoKeyChromDouxOctave
+- key_signature.ZoKeyChromDouxSup
 - key_signature.ZoKeyChromDure(Sup)
 - key_signature.ZoKeyDiatOctave
 groups:
@@ -136,7 +190,7 @@ groups:
   - mode.VouKey
   - mode.KeKey
   - mode.PaKeyMinore
-  - mode.PaKeyHijaz
+  - mode.PaKeyChromDure
   - mode.ZoKeyDown
   - mode.NiKey
   - mode.PaKeyFrios
@@ -170,8 +224,30 @@ groups:
   - base_neume.Plus6
   - base_neume.Plus7
   - base_neume.Plus8
+  - base_neume.Plus9
+  - base_neume.Plus10
   - base_neume.Kendimata
   - base_neume.Petasti
+  - base_neume.PetastiIsson
+  - base_neume.PetastiOligon
+  - base_neume.PetastiKendima
+  - base_neume.PetastiIpsili
+  - base_neume.PetastiPlus5
+  - base_neume.PetastiPlus6
+  - base_neume.PetastiPlus7
+  - base_neume.PetastiPlus8
+  - base_neume.PetastiPlus9
+  - base_neume.PetastiPlus10
+  - base_neume.PetastiApostrophos
+  - base_neume.PetastiElaphron
+  - base_neume.PetastiMinus3
+  - base_neume.PetastiMinus4
+  - base_neume.PetastiMinus5
+  - base_neume.PetastiMinus6
+  - base_neume.PetastiMinus7
+  - base_neume.PetastiMinus8
+  - base_neume.PetastiMinus9
+  - base_neume.Varia
   - base_neume.OnePlusOneUp
   - base_neume.OnePlusOneDn
   - base_neume.Apostrofos
@@ -182,6 +258,8 @@ groups:
   - base_neume.Minus6
   - base_neume.Minus7
   - base_neume.Minus8
+  - base_neume.Minus9
+  - base_neume.Minus10
   - base_neume.Iporoi
   - base_neume.Stavros
   rest:
@@ -203,6 +281,12 @@ groups:
   - modifier_gorgon.Ifesis
   - modifier_gorgon.Diesis
   - modifier_gorgon.HalfDiesis
+  - modifier_gorgon.HalfIfesis
+  - modifier_gorgon.ThirdIfesis
+  - modifier_gorgon.Psifiston
+  - modifier_gorgon.Omalon
+  - modifier_gorgon.Antikenoma
+  - modifier_gorgon.Eteron
   isson:
   - modifier_isson.Pa
   - modifier_isson.Vou
@@ -214,51 +298,75 @@ groups:
   - modifier_isson.Melo
   key_signature:
   - key_signature.DhiKey(Down)
+  - key_signature.DhiKey2
+  - key_signature.DhiKeyKliton
+  - key_signature.DhiKey
   - key_signature.DhiKeyChromDoux
+  - key_signature.DhiKeyChromDouxTetr
   - key_signature.DhiKeyZygos
   - key_signature.DhiKeyChromDure(Down)
+  - key_signature.DhiKeyChromDure2
   - key_signature.DhiKeyChrom
   - key_signature.DhiKeyDiatonic(Down)
   - key_signature.DhiKeyDiatonic
   - key_signature.GhaKey(Down)
   - key_signature.GhaKey
+  - key_signature.GhaKeyDiatonic
+  - key_signature.GhaKeyKliton
   - key_signature.GhaKey8em
+  - key_signature.GhaKeyOctave
   - key_signature.GhaKeyChromDoux
   - key_signature.GhaKeyChromDouxTetr
   - key_signature.GhaKeyChromDure
+  - key_signature.GhaKeyChromDure2
   - key_signature.KeKey(Down)
   - key_signature.KeKey
+  - key_signature.KeKey2
   - key_signature.KeKey8em
   - key_signature.KeKeyChromDoux
   - key_signature.KeKeyChromDouxTetr
   - key_signature.KeKeyChromDouxTetrWithFthora
   - key_signature.KeKeyChromDure(Down)
   - key_signature.KeKeyChromDure
+  - key_signature.KeKeyChromDure2
   - key_signature.NiKey
   - key_signature.NiKeyChromDoux
   - key_signature.NiKeyChromDouxSup
+  - key_signature.NiKeyChromDouxOctave
+  - key_signature.NiKeyChromDure
   - key_signature.NiKeyChromDure(Sup)
+  - key_signature.NiKeyChromDure2
   - key_signature.NiKeyMinore
+  - key_signature.NiKeyMinore2
   - key_signature.NiKeyOctave
   - key_signature.PaKey
   - key_signature.PaKeyChromDoux
+  - key_signature.PaKeyChromDouxSup
   - key_signature.PaKeyChromDouxTetr
   - key_signature.PaKeyChromDure
+  - key_signature.PaKeyChromDure2
   - key_signature.PaKeyChromDureSup
   - key_signature.PaKeyFrios
   - key_signature.PaKeyFriosSup
   - key_signature.PaKeyMinore
+  - key_signature.PaKeyMinoreOctave
   - key_signature.PaKeyOctave
   - key_signature.VouKey
+  - key_signature.VouKeyOctave
   - key_signature.VouKeyAjam
+  - key_signature.VouKeyKliton
   - key_signature.VouKeyChromDoux
+  - key_signature.VouKeyChromDouxTetr
+  - key_signature.VouKeyChromDure2
   - key_signature.VouKeyZygos
   - key_signature.VouKeyChromDure
   - key_signature.VouKeyMinore
+  - key_signature.VouKeyMinoreOctave
   - key_signature.ZoKeyDown
   - key_signature.KeyAjamZo
   - key_signature.ZoKeyAjamOctave
   - key_signature.ZoKeyChromDouxOctave
+  - key_signature.ZoKeyChromDouxSup
   - key_signature.ZoKeyChromDure(Sup)
   - key_signature.ZoKeyDiatOctave
 source_meta:
@@ -267,16 +375,18 @@ source_meta:
   toolbarCounts:
     modesToolbar: 11
     modulationToolbar: 18
-    neumeToolbar: 24
-    gorgonToolbar: 16
+    neumeToolbar: 48
+    gorgonToolbar: 22
     issonToolbar: 8
-  keySignatureCount: 48
-  actionCharMapCount: 83
+  keySignatureCount: 72
+  actionCharMapCount: 117
   actionIcons:
+  - Antikenoma
   - Apli
   - Apostrofos
   - Argon
   - Dhi
+  - DhiKey
   - DhiKeyChrom
   - DhiKeyDiatonic
   - DhiKeyZygos
@@ -287,6 +397,7 @@ source_meta:
   - Diesis
   - Dipli
   - Elafron
+  - Eteron
   - Gha
   - GhaKey
   - GhaKey8em
@@ -294,22 +405,26 @@ source_meta:
   - GorgonApliLeft
   - GorgonApliRight
   - HalfDiesis
+  - HalfIfesis
   - Ifesis
   - Iporoi
   - Isson2
   - Ke
   - KeKey
+  - KeKey2
   - KeKeyChromDouxTetrWithFthora
   - Kendimata
   - KeyAjamZo
   - Klasma
   - Melo
+  - Minus10
   - Minus3
   - Minus4
   - Minus5
   - Minus6
   - Minus7
   - Minus8
+  - Minus9
   - ModulationChromaticHardDhi
   - ModulationChromaticHardDhiCross
   - ModulationChromaticHardKePa
@@ -331,14 +446,36 @@ source_meta:
   - Ni
   - NiKey
   - Oligon
+  - Omalon
   - OnePlusOneDn
   - OnePlusOneUp
   - Pa
   - PaKey
+  - PaKeyChromDure
   - PaKeyFrios
-  - PaKeyHijaz
   - PaKeyMinore
+  - PaKeyMinoreOctave
   - Petasti
+  - PetastiApostrophos
+  - PetastiElaphron
+  - PetastiIpsili
+  - PetastiIsson
+  - PetastiKendima
+  - PetastiMinus3
+  - PetastiMinus4
+  - PetastiMinus5
+  - PetastiMinus6
+  - PetastiMinus7
+  - PetastiMinus8
+  - PetastiMinus9
+  - PetastiOligon
+  - PetastiPlus10
+  - PetastiPlus5
+  - PetastiPlus6
+  - PetastiPlus7
+  - PetastiPlus8
+  - PetastiPlus9
+  - Plus10
   - Plus2
   - Plus3
   - Plus4
@@ -346,18 +483,23 @@ source_meta:
   - Plus6
   - Plus7
   - Plus8
+  - Plus9
+  - Psifiston
   - Siopi1
   - Siopi2
   - Stavros
+  - ThirdIfesis
   - TriGorgon
   - Tripli
+  - Varia
   - Vou
   - VouKey
+  - VouKeyMinoreOctave
   - VouKeyZygos
   - Zo
   - ZoKeyDown
-  reactSequenceCount: 123
-  legacySequenceCount: 105
-  allSequenceCount: 180
+  reactSequenceCount: 128
+  legacySequenceCount: 115
+  allSequenceCount: 211
   orphanActionIcons:
   - Siopi2

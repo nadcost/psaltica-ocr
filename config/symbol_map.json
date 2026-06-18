@@ -5,17 +5,19 @@
     "toolbarCounts": {
       "modesToolbar": 11,
       "modulationToolbar": 18,
-      "neumeToolbar": 24,
-      "gorgonToolbar": 16,
+      "neumeToolbar": 48,
+      "gorgonToolbar": 22,
       "issonToolbar": 8
     },
-    "keySignatureCount": 48,
-    "actionCharMapCount": 83,
+    "keySignatureCount": 72,
+    "actionCharMapCount": 117,
     "actionIcons": [
+      "Antikenoma",
       "Apli",
       "Apostrofos",
       "Argon",
       "Dhi",
+      "DhiKey",
       "DhiKeyChrom",
       "DhiKeyDiatonic",
       "DhiKeyZygos",
@@ -26,6 +28,7 @@
       "Diesis",
       "Dipli",
       "Elafron",
+      "Eteron",
       "Gha",
       "GhaKey",
       "GhaKey8em",
@@ -33,22 +36,26 @@
       "GorgonApliLeft",
       "GorgonApliRight",
       "HalfDiesis",
+      "HalfIfesis",
       "Ifesis",
       "Iporoi",
       "Isson2",
       "Ke",
       "KeKey",
+      "KeKey2",
       "KeKeyChromDouxTetrWithFthora",
       "Kendimata",
       "KeyAjamZo",
       "Klasma",
       "Melo",
+      "Minus10",
       "Minus3",
       "Minus4",
       "Minus5",
       "Minus6",
       "Minus7",
       "Minus8",
+      "Minus9",
       "ModulationChromaticHardDhi",
       "ModulationChromaticHardDhiCross",
       "ModulationChromaticHardKePa",
@@ -70,14 +77,36 @@
       "Ni",
       "NiKey",
       "Oligon",
+      "Omalon",
       "OnePlusOneDn",
       "OnePlusOneUp",
       "Pa",
       "PaKey",
+      "PaKeyChromDure",
       "PaKeyFrios",
-      "PaKeyHijaz",
       "PaKeyMinore",
+      "PaKeyMinoreOctave",
       "Petasti",
+      "PetastiApostrophos",
+      "PetastiElaphron",
+      "PetastiIpsili",
+      "PetastiIsson",
+      "PetastiKendima",
+      "PetastiMinus3",
+      "PetastiMinus4",
+      "PetastiMinus5",
+      "PetastiMinus6",
+      "PetastiMinus7",
+      "PetastiMinus8",
+      "PetastiMinus9",
+      "PetastiOligon",
+      "PetastiPlus10",
+      "PetastiPlus5",
+      "PetastiPlus6",
+      "PetastiPlus7",
+      "PetastiPlus8",
+      "PetastiPlus9",
+      "Plus10",
       "Plus2",
       "Plus3",
       "Plus4",
@@ -85,20 +114,25 @@
       "Plus6",
       "Plus7",
       "Plus8",
+      "Plus9",
+      "Psifiston",
       "Siopi1",
       "Siopi2",
       "Stavros",
+      "ThirdIfesis",
       "TriGorgon",
       "Tripli",
+      "Varia",
       "Vou",
       "VouKey",
+      "VouKeyMinoreOctave",
       "VouKeyZygos",
       "Zo",
       "ZoKeyDown"
     ],
-    "reactSequenceCount": 123,
-    "legacySequenceCount": 105,
-    "allSequenceCount": 180,
+    "reactSequenceCount": 128,
+    "legacySequenceCount": 115,
+    "allSequenceCount": 211,
     "orphanActionIcons": [
       "Siopi2"
     ]
@@ -285,8 +319,8 @@
       }
     },
     {
-      "icon": "PaKeyHijaz",
-      "label": "PaKeyHijaz",
+      "icon": "PaKeyChromDure",
+      "label": "PaKeyChromDure",
       "group": "mode",
       "role": "key_signature",
       "variants": {
@@ -1265,6 +1299,62 @@
       }
     },
     {
+      "icon": "Plus9",
+      "label": "Plus9",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "9",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "9",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": "9"
+      }
+    },
+    {
+      "icon": "Plus10",
+      "label": "Plus10",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
       "icon": "Kendimata",
       "label": "Kendimata",
       "group": "neume",
@@ -1322,6 +1412,596 @@
       },
       "reactChars": {
         "insert": "q"
+      }
+    },
+    {
+      "icon": "PetastiIsson",
+      "label": "PetastiIsson",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "p",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "p",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {
+        "default": "p"
+      },
+      "reactChars": {
+        "insert": "p"
+      }
+    },
+    {
+      "icon": "PetastiOligon",
+      "label": "PetastiOligon",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "w",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "w",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {
+        "default": "w"
+      },
+      "reactChars": {
+        "insert": "w"
+      }
+    },
+    {
+      "icon": "PetastiKendima",
+      "label": "PetastiKendima",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "e",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "e",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {
+        "default": "e"
+      },
+      "reactChars": {
+        "insert": "e"
+      }
+    },
+    {
+      "icon": "PetastiIpsili",
+      "label": "PetastiIpsili",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "r",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "r",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {
+        "default": "r"
+      },
+      "reactChars": {
+        "insert": "r"
+      }
+    },
+    {
+      "icon": "PetastiPlus5",
+      "label": "PetastiPlus5",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "t",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "t",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": "t"
+      },
+      "reactChars": {
+        "insert": "t"
+      }
+    },
+    {
+      "icon": "PetastiPlus6",
+      "label": "PetastiPlus6",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "y",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "y",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": "y"
+      },
+      "reactChars": {
+        "insert": "y"
+      }
+    },
+    {
+      "icon": "PetastiPlus7",
+      "label": "PetastiPlus7",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "u",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "u",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": "u"
+      },
+      "reactChars": {
+        "insert": "u"
+      }
+    },
+    {
+      "icon": "PetastiPlus8",
+      "label": "PetastiPlus8",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "i",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "i",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": "i"
+      }
+    },
+    {
+      "icon": "PetastiPlus9",
+      "label": "PetastiPlus9",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "PetastiPlus10",
+      "label": "PetastiPlus10",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "PetastiApostrophos",
+      "label": "PetastiApostrophos",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "Q",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "Q",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": "Q"
+      },
+      "reactChars": {
+        "insert": "Q"
+      }
+    },
+    {
+      "icon": "PetastiElaphron",
+      "label": "PetastiElaphron",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "W",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "W",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": "W"
+      },
+      "reactChars": {
+        "insert": "W"
+      }
+    },
+    {
+      "icon": "PetastiMinus3",
+      "label": "PetastiMinus3",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "E",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "E",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": "E"
+      },
+      "reactChars": {
+        "insert": "E"
+      }
+    },
+    {
+      "icon": "PetastiMinus4",
+      "label": "PetastiMinus4",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": ""
+      },
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "PetastiMinus5",
+      "label": "PetastiMinus5",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": ""
+      },
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "PetastiMinus6",
+      "label": "PetastiMinus6",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": ""
+      },
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "PetastiMinus7",
+      "label": "PetastiMinus7",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {
+        "default": ""
+      },
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "PetastiMinus8",
+      "label": "PetastiMinus8",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "PetastiMinus9",
+      "label": "PetastiMinus9",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "bottomCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": ""
+      }
+    },
+    {
+      "icon": "Varia",
+      "label": "Varia",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "\\",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "\\",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {
+        "default": "\\"
+      },
+      "reactChars": {
+        "insert": "\\"
       }
     },
     {
@@ -1622,6 +2302,62 @@
       },
       "reactChars": {
         "insert": "*"
+      }
+    },
+    {
+      "icon": "Minus9",
+      "label": "Minus9",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "(",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "(",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": "("
+      }
+    },
+    {
+      "icon": "Minus10",
+      "label": "Minus10",
+      "group": "neume",
+      "role": "base",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": true,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": "long",
+      "heavyTop": false,
+      "klasmaPlacement": "topCenter",
+      "legacyChars": {},
+      "reactChars": {
+        "insert": ""
       }
     },
     {
@@ -2235,6 +2971,182 @@
       }
     },
     {
+      "icon": "HalfIfesis",
+      "label": "HalfIfesis",
+      "group": "gorgon",
+      "role": "modifier",
+      "variants": {
+        "insert": null,
+        "short": "",
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": false,
+      "isModifier": true,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {
+        "short": ""
+      }
+    },
+    {
+      "icon": "ThirdIfesis",
+      "label": "ThirdIfesis",
+      "group": "gorgon",
+      "role": "modifier",
+      "variants": {
+        "insert": null,
+        "short": "",
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": false,
+      "isModifier": true,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {
+        "short": ""
+      }
+    },
+    {
+      "icon": "Psifiston",
+      "label": "Psifiston",
+      "group": "gorgon",
+      "role": "modifier",
+      "variants": {
+        "insert": null,
+        "short": "'",
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "'",
+      "isBase": false,
+      "isModifier": true,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "short": "'"
+      },
+      "reactChars": {
+        "short": "'"
+      }
+    },
+    {
+      "icon": "Omalon",
+      "label": "Omalon",
+      "group": "gorgon",
+      "role": "modifier",
+      "variants": {
+        "insert": null,
+        "short": "{",
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "{",
+      "isBase": false,
+      "isModifier": true,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "short": "{"
+      },
+      "reactChars": {
+        "short": "{"
+      }
+    },
+    {
+      "icon": "Antikenoma",
+      "label": "Antikenoma",
+      "group": "gorgon",
+      "role": "modifier",
+      "variants": {
+        "insert": null,
+        "short": "\"",
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "\"",
+      "isBase": false,
+      "isModifier": true,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "short": "\""
+      },
+      "reactChars": {
+        "short": "\""
+      }
+    },
+    {
+      "icon": "Eteron",
+      "label": "Eteron",
+      "group": "gorgon",
+      "role": "modifier",
+      "variants": {
+        "insert": null,
+        "short": "",
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": false,
+      "isModifier": true,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "short": ""
+      },
+      "reactChars": {
+        "short": ""
+      }
+    },
+    {
       "icon": "Pa",
       "label": "Pa",
       "group": "isson",
@@ -2496,13 +3408,13 @@
       "group": "key_signature",
       "role": "key_signature",
       "variants": {
-        "insert": "mV",
+        "insert": "Vm",
         "short": null,
         "long": null,
         "extraShort": null,
         "under": null
       },
-      "insert": "mV",
+      "insert": "Vm",
       "isBase": false,
       "isModifier": false,
       "isKeySignature": true,
@@ -2515,6 +3427,86 @@
       "klasmaPlacement": null,
       "legacyChars": {},
       "reactChars": {}
+    },
+    {
+      "icon": "DhiKey2",
+      "label": "DhiKey2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "mV",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "mV",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 70,
+      "keySignatureRole": "midOnly",
+      "category": "Enharmonic",
+      "basePitch": 67,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "DhiKeyKliton",
+      "label": "DhiKeyKliton",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "m<N",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "m<N",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 72,
+      "keySignatureRole": "midOnly",
+      "category": "Enharmonic",
+      "basePitch": 67,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "DhiKey",
+      "label": "DhiKey",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "Cm",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "Cm",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 56,
+      "keySignatureRole": "midOnly",
+      "category": "Enharmonic",
+      "basePitch": 67,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {
+        "insert": "Cm"
+      }
     },
     {
       "icon": "DhiKeyChromDoux",
@@ -2534,6 +3526,32 @@
       "isKeySignature": true,
       "keyId": 2,
       "keySignatureRole": "segmentStart",
+      "category": "Soft Chromatic",
+      "basePitch": 67,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "DhiKeyChromDouxTetr",
+      "label": "DhiKeyChromDouxTetr",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "m",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "m",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 58,
+      "keySignatureRole": "midOnly",
       "category": "Soft Chromatic",
       "basePitch": 67,
       "length": null,
@@ -2578,6 +3596,32 @@
       "group": "key_signature",
       "role": "key_signature",
       "variants": {
+        "insert": "Ĉm",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "Ĉm",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 30,
+      "keySignatureRole": "midOnly",
+      "category": "Hard Chromatic",
+      "basePitch": 55,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "DhiKeyChromDure2",
+      "label": "DhiKeyChromDure2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
         "insert": "mĈ",
         "short": null,
         "long": null,
@@ -2588,10 +3632,10 @@
       "isBase": false,
       "isModifier": false,
       "isKeySignature": true,
-      "keyId": 30,
+      "keyId": 67,
       "keySignatureRole": "midOnly",
       "category": "Hard Chromatic",
-      "basePitch": 55,
+      "basePitch": 67,
       "length": null,
       "heavyTop": false,
       "klasmaPlacement": null,
@@ -2741,6 +3785,58 @@
       }
     },
     {
+      "icon": "GhaKeyDiatonic",
+      "label": "GhaKeyDiatonic",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "n>",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "n>",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 57,
+      "keySignatureRole": "midOnly",
+      "category": "Diatonic",
+      "basePitch": 65,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "GhaKeyKliton",
+      "label": "GhaKeyKliton",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "n<V",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "n<V",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 73,
+      "keySignatureRole": "midOnly",
+      "category": "Enharmonic",
+      "basePitch": 65,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
       "icon": "GhaKey8em",
       "label": "GhaKey8em",
       "group": "key_signature",
@@ -2769,6 +3865,32 @@
       "reactChars": {
         "insert": "nC"
       }
+    },
+    {
+      "icon": "GhaKeyOctave",
+      "label": "GhaKeyOctave",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "n/N",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "n/N",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 9,
+      "keySignatureRole": "midOnly",
+      "category": "Diatonic",
+      "basePitch": 77,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
     },
     {
       "icon": "GhaKeyChromDoux",
@@ -2849,6 +3971,32 @@
       "reactChars": {}
     },
     {
+      "icon": "GhaKeyChromDure2",
+      "label": "GhaKeyChromDure2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "n",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "n",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 65,
+      "keySignatureRole": "midOnly",
+      "category": "Hard Chromatic",
+      "basePitch": 65,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
       "icon": "KeKey(Down)",
       "label": "KeKey(Down)",
       "group": "key_signature",
@@ -2902,6 +4050,36 @@
       },
       "reactChars": {
         "insert": ",<V"
+      }
+    },
+    {
+      "icon": "KeKey2",
+      "label": "KeKey2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": ",V",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": ",V",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 50,
+      "keySignatureRole": "segmentStart",
+      "category": "Diatonic",
+      "basePitch": 69,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "default": ",V"
+      },
+      "reactChars": {
+        "insert": ",V"
       }
     },
     {
@@ -3065,6 +4243,32 @@
       "reactChars": {}
     },
     {
+      "icon": "KeKeyChromDure2",
+      "label": "KeKeyChromDure2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": ",",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": ",",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 68,
+      "keySignatureRole": "midOnly",
+      "category": "Hard Chromatic",
+      "basePitch": 69,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
       "icon": "NiKey",
       "label": "NiKey",
       "group": "key_signature",
@@ -3147,6 +4351,58 @@
       "reactChars": {}
     },
     {
+      "icon": "NiKeyChromDouxOctave",
+      "label": "NiKeyChromDouxOctave",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "c</Ĉ",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "c</Ĉ",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 64,
+      "keySignatureRole": "midOnly",
+      "category": "Soft Chromatic",
+      "basePitch": 72,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "NiKeyChromDure",
+      "label": "NiKeyChromDure",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "cĈ",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "cĈ",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 75,
+      "keySignatureRole": "midOnly",
+      "category": "Hard Chromatic",
+      "basePitch": 60,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
       "icon": "NiKeyChromDure(Sup)",
       "label": "NiKeyChromDure(Sup)",
       "group": "key_signature",
@@ -3173,6 +4429,32 @@
       "reactChars": {}
     },
     {
+      "icon": "NiKeyChromDure2",
+      "label": "NiKeyChromDure2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "c",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "c",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 76,
+      "keySignatureRole": "midOnly",
+      "category": "Hard Chromatic",
+      "basePitch": 60,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
       "icon": "NiKeyMinore",
       "label": "NiKeyMinore",
       "group": "key_signature",
@@ -3189,6 +4471,32 @@
       "isModifier": false,
       "isKeySignature": true,
       "keyId": 25,
+      "keySignatureRole": "midOnly",
+      "category": "Enharmonic",
+      "basePitch": 72,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "NiKeyMinore2",
+      "label": "NiKeyMinore2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "c<C",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "c<C",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 69,
       "keySignatureRole": "midOnly",
       "category": "Enharmonic",
       "basePitch": 72,
@@ -3281,6 +4589,32 @@
       "reactChars": {}
     },
     {
+      "icon": "PaKeyChromDouxSup",
+      "label": "PaKeyChromDouxSup",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "v/",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "v/",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 61,
+      "keySignatureRole": "midOnly",
+      "category": "Soft Chromatic",
+      "basePitch": 74,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
       "icon": "PaKeyChromDouxTetr",
       "label": "PaKeyChromDouxTetr",
       "group": "key_signature",
@@ -3324,6 +4658,36 @@
       "isKeySignature": true,
       "keyId": 6,
       "keySignatureRole": "segmentStart",
+      "category": "Hard Chromatic",
+      "basePitch": 62,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "default": "v?"
+      },
+      "reactChars": {
+        "insert": "v?"
+      }
+    },
+    {
+      "icon": "PaKeyChromDure2",
+      "label": "PaKeyChromDure2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "v",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "v",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 60,
+      "keySignatureRole": "midOnly",
       "category": "Hard Chromatic",
       "basePitch": 62,
       "length": null,
@@ -3445,6 +4809,36 @@
       }
     },
     {
+      "icon": "PaKeyMinoreOctave",
+      "label": "PaKeyMinoreOctave",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "v/<C",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "v/<C",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 54,
+      "keySignatureRole": "midOnly",
+      "category": "Diatonic",
+      "basePitch": 74,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "default": "v/<C"
+      },
+      "reactChars": {
+        "insert": "v/<C"
+      }
+    },
+    {
       "icon": "PaKeyOctave",
       "label": "PaKeyOctave",
       "group": "key_signature",
@@ -3501,6 +4895,32 @@
       }
     },
     {
+      "icon": "VouKeyOctave",
+      "label": "VouKeyOctave",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "b/B",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "b/B",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 34,
+      "keySignatureRole": "midOnly",
+      "category": "Diatonic",
+      "basePitch": 76,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
       "icon": "VouKeyAjam",
       "label": "VouKeyAjam",
       "group": "key_signature",
@@ -3517,6 +4937,32 @@
       "isModifier": false,
       "isKeySignature": true,
       "keyId": 37,
+      "keySignatureRole": "midOnly",
+      "category": "Enharmonic",
+      "basePitch": 64,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "VouKeyKliton",
+      "label": "VouKeyKliton",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "b<C",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "b<C",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 74,
       "keySignatureRole": "midOnly",
       "category": "Enharmonic",
       "basePitch": 64,
@@ -3545,6 +4991,58 @@
       "keyId": 38,
       "keySignatureRole": "midOnly",
       "category": "Soft Chromatic",
+      "basePitch": 64,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "VouKeyChromDouxTetr",
+      "label": "VouKeyChromDouxTetr",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "b",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "b",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 62,
+      "keySignatureRole": "midOnly",
+      "category": "Soft Chromatic",
+      "basePitch": 64,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "VouKeyChromDure2",
+      "label": "VouKeyChromDure2",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "bĈ",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "bĈ",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 66,
+      "keySignatureRole": "midOnly",
+      "category": "Hard Chromatic",
       "basePitch": 64,
       "length": null,
       "heavyTop": false,
@@ -3633,6 +5131,36 @@
       "klasmaPlacement": null,
       "legacyChars": {},
       "reactChars": {}
+    },
+    {
+      "icon": "VouKeyMinoreOctave",
+      "label": "VouKeyMinoreOctave",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "b/<V",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "b/<V",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 55,
+      "keySignatureRole": "midOnly",
+      "category": "Diatonic",
+      "basePitch": 76,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {
+        "default": "b/<V"
+      },
+      "reactChars": {
+        "insert": "b/<V"
+      }
     },
     {
       "icon": "ZoKeyDown",
@@ -3740,6 +5268,32 @@
       "keySignatureRole": "midOnly",
       "category": "Soft Chromatic",
       "basePitch": 71,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {}
+    },
+    {
+      "icon": "ZoKeyChromDouxSup",
+      "label": "ZoKeyChromDouxSup",
+      "group": "key_signature",
+      "role": "key_signature",
+      "variants": {
+        "insert": "./",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "./",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": true,
+      "keyId": 63,
+      "keySignatureRole": "midOnly",
+      "category": "Soft Chromatic",
+      "basePitch": 70,
       "length": null,
       "heavyTop": false,
       "klasmaPlacement": null,
