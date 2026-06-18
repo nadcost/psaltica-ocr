@@ -33,6 +33,7 @@ DEFAULT_PREDICTIONS = ROOT / "data/annotations/predictions_50.json"
 DEFAULT_CLASSES = ROOT / "config/classes.yaml"
 DEFAULT_SYMBOL_MAP = ROOT / "config/symbol_map.json"
 DEFAULT_CORRECTIONS = ROOT / "data/corrections"
+UNASSIGNED = "— pick class —"
 
 
 @st.cache_data
@@ -189,11 +190,8 @@ def main() -> None:
     draw_mode = c_draw.checkbox("✏️ Draw mode — click two opposite corners of a glyph")
     auto_guess = c_guess.checkbox("🔮 Auto-guess class", value=False,
                                   help="Font-glyph match — unreliable on the printed typeface until it "
-                                       "learns from your labels. Off by default; use per-box 🔮 to try it.")
-    new_cls = st.selectbox("Fallback class (when auto-guess is off/unsure)", classes, key="add_cls")
-    glyph = _glyph_uri(new_cls, str(DEFAULT_SYMBOL_MAP))
-    if glyph:
-        st.markdown(f"fallback → <img src='{glyph}' width='40'> `{new_cls}`", unsafe_allow_html=True)
+                                       "learns from your labels. Off by default: drawn boxes start "
+                                       "unassigned and you pick the class.")
 
     if draw_mode:
         from streamlit_image_coordinates import streamlit_image_coordinates
@@ -213,10 +211,10 @@ def main() -> None:
                     xs = sorted([pend_pt[0], pt[0]])
                     ys = sorted([pend_pt[1], pt[1]])
                     x1b, y1b, x2b, y2b = max(0, xs[0]), max(0, ys[0]), min(width, xs[1]), min(height, ys[1])
-                    cls = new_cls
+                    cls = ""  # unassigned by default — you pick it in the list
                     if auto_guess and x2b > x1b and y2b > y1b:
                         guess, _ = rio.guess_class(image[int(y1b):int(y2b), int(x1b):int(x2b)], descriptors)
-                        cls = guess or new_cls
+                        cls = guess or ""
                     snapshot()
                     boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
                     st.session_state.pop(f"pend::{page}", None)
@@ -234,9 +232,11 @@ def main() -> None:
         crop = image[max(0, int(box.y1)): int(box.y2), max(0, int(box.x1)): int(box.x2)]
         if crop.size:
             cols[0].image(crop, caption=f"#{i}", width=64)
-        default = classes.index(box.cls) if box.cls in classes else 0
-        box.cls = cols[2].selectbox(f"class #{i}", classes, index=default,
-                                    key=f"cls::{box.uid}", label_visibility="collapsed")
+        options = [UNASSIGNED] + classes
+        default = options.index(box.cls) if box.cls in classes else 0
+        choice = cols[2].selectbox(f"class #{i}", options, index=default,
+                                   key=f"cls::{box.uid}", label_visibility="collapsed")
+        box.cls = "" if choice == UNASSIGNED else choice
         uri = _glyph_uri(box.cls, str(DEFAULT_SYMBOL_MAP))
         if uri:
             cols[1].markdown(f"<img src='{uri}' width='52'>", unsafe_allow_html=True)
