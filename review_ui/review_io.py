@@ -16,6 +16,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+from uuid import uuid4
 
 import cv2
 import numpy as np
@@ -44,6 +45,7 @@ class Box:
     y2: float
     score: float = 1.0
     source: str = "pred"  # pred | added | edited
+    uid: str = field(default_factory=lambda: uuid4().hex[:8])  # stable widget key
 
     @property
     def width(self) -> float:

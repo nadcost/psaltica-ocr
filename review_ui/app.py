@@ -17,6 +17,7 @@ HiDPI displays. Geometry maths still lives, tested, in review_ui/review_io.py.)
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -132,14 +133,31 @@ def main() -> None:
         st.session_state[box_key] = _initial_boxes(image_path, width, height, classes)
     boxes: list[rio.Box] = st.session_state[box_key]
 
+    undo_key, redo_key = f"undo::{page}", f"redo::{page}"
+
+    def snapshot() -> None:
+        st.session_state.setdefault(undo_key, []).append(copy.deepcopy(boxes))
+        st.session_state[redo_key] = []
+
     with st.sidebar:
         st.divider()
         n_pred = len(_prediction_boxes(image_path, width, height, preds))
         if st.button(f"Load autolabel predictions ({n_pred})", disabled=n_pred == 0,
                      help="Template-match boxes — they over-detect, so from-scratch is often easier."):
+            snapshot()
             st.session_state[box_key] = _prediction_boxes(image_path, width, height, preds)
             st.rerun()
+        u, r = st.columns(2)
+        if u.button("↩️ Undo", disabled=not st.session_state.get(undo_key)):
+            st.session_state.setdefault(redo_key, []).append(copy.deepcopy(boxes))
+            st.session_state[box_key] = st.session_state[undo_key].pop()
+            st.rerun()
+        if r.button("↪️ Redo", disabled=not st.session_state.get(redo_key)):
+            st.session_state.setdefault(undo_key, []).append(copy.deepcopy(boxes))
+            st.session_state[box_key] = st.session_state[redo_key].pop()
+            st.rerun()
         if st.button("Clear all boxes on this page"):
+            snapshot()
             st.session_state[box_key] = []
             st.rerun()
 
@@ -148,11 +166,29 @@ def main() -> None:
     view = st.sidebar.number_input("Panel page", 1, total_views, 1) - 1
     view_indices = indices[view * per_view : (view + 1) * per_view]
 
+    # Apply a pending re-guess BEFORE any class selectbox is created (Streamlit
+    # forbids setting a widget's state after the widget exists).
+    pending_uid = st.session_state.pop("guess_uid", None)
+    if pending_uid:
+        for b in boxes:
+            if b.uid == pending_uid:
+                guess, _ = rio.guess_class(image[int(b.y1):int(b.y2), int(b.x1):int(b.x2)], descriptors)
+                if guess:
+                    b.cls = guess
+                    st.session_state[f"cls::{b.uid}"] = guess
+                break
+
+    factor = width / display_width
     overlay = _overlay(image, boxes, set(view_indices), display_width)
+    pend_pt = st.session_state.get(f"pend::{page}")
+    if pend_pt:
+        cv2.drawMarker(overlay, (int(pend_pt[0] / factor), int(pend_pt[1] / factor)),
+                       (255, 0, 0), cv2.MARKER_CROSS, 26, 3)
+
     c_draw, c_guess = st.columns(2)
-    draw_mode = c_draw.checkbox("✏️ Draw mode — drag a rectangle on the page to add a box")
-    auto_guess = c_guess.checkbox("🔮 Auto-guess class for drawn boxes", value=bool(descriptors))
-    new_cls = st.selectbox("Fallback class (used when auto-guess is off or unsure)", classes, key="add_cls")
+    draw_mode = c_draw.checkbox("✏️ Draw mode — click two opposite corners of a glyph")
+    auto_guess = c_guess.checkbox("🔮 Auto-guess class", value=bool(descriptors))
+    new_cls = st.selectbox("Fallback class (when auto-guess is off/unsure)", classes, key="add_cls")
     glyph = _glyph_uri(new_cls, str(DEFAULT_SYMBOL_MAP))
     if glyph:
         st.markdown(f"fallback → <img src='{glyph}' width='40'> `{new_cls}`", unsafe_allow_html=True)
@@ -160,24 +196,29 @@ def main() -> None:
     if draw_mode:
         from streamlit_image_coordinates import streamlit_image_coordinates
 
-        st.caption("Drag from one corner of the glyph to the opposite corner. The box is "
-                   "auto-labelled with its best-matching glyph; correct it in the list if wrong.")
-        result = streamlit_image_coordinates(overlay, width=display_width, click_and_drag=True, key=f"draw::{page}")
-        if result and result.get("x2") is not None:
-            sig = (result["x1"], result["y1"], result["x2"], result["y2"])
-            big = abs(result["x2"] - result["x1"]) > 2 and abs(result["y2"] - result["y1"]) > 2
-            if big and st.session_state.get(f"lastdraw::{page}") != sig:
-                st.session_state[f"lastdraw::{page}"] = sig
-                factor = width / display_width  # coords come back in the displayed-image space
-                xs = sorted([result["x1"] * factor, result["x2"] * factor])
-                ys = sorted([result["y1"] * factor, result["y2"] * factor])
-                x1b, y1b, x2b, y2b = max(0, xs[0]), max(0, ys[0]), min(width, xs[1]), min(height, ys[1])
-                cls = new_cls
-                if auto_guess:
-                    guess, _ = rio.guess_class(image[int(y1b):int(y2b), int(x1b):int(x2b)], descriptors)
-                    cls = guess or new_cls
-                boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
-                st.rerun()
+        st.caption("Click one corner, then the opposite corner. The red ✚ marks your first corner; "
+                   "the box is auto-labelled and you correct it in the list if wrong.")
+        result = streamlit_image_coordinates(overlay, width=display_width, key=f"click::{page}")
+        if result and result.get("x") is not None:
+            sig = (result["x"], result["y"])
+            if st.session_state.get(f"lastclick::{page}") != sig:
+                st.session_state[f"lastclick::{page}"] = sig
+                pt = (result["x"] * factor, result["y"] * factor)
+                if pend_pt is None:
+                    st.session_state[f"pend::{page}"] = pt
+                    st.rerun()
+                else:
+                    xs = sorted([pend_pt[0], pt[0]])
+                    ys = sorted([pend_pt[1], pt[1]])
+                    x1b, y1b, x2b, y2b = max(0, xs[0]), max(0, ys[0]), min(width, xs[1]), min(height, ys[1])
+                    cls = new_cls
+                    if auto_guess and x2b > x1b and y2b > y1b:
+                        guess, _ = rio.guess_class(image[int(y1b):int(y2b), int(x1b):int(x2b)], descriptors)
+                        cls = guess or new_cls
+                    snapshot()
+                    boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
+                    st.session_state.pop(f"pend::{page}", None)
+                    st.rerun()
     else:
         st.image(overlay, width=display_width,
                  caption=f"{page} — {len(boxes)} boxes (current panel page highlighted)")
@@ -193,17 +234,15 @@ def main() -> None:
             cols[0].image(crop, caption=f"#{i}", width=64)
         default = classes.index(box.cls) if box.cls in classes else 0
         box.cls = cols[2].selectbox(f"class #{i}", classes, index=default,
-                                    key=f"cls::{page}::{i}", label_visibility="collapsed")
+                                    key=f"cls::{box.uid}", label_visibility="collapsed")
         uri = _glyph_uri(box.cls, str(DEFAULT_SYMBOL_MAP))
         if uri:
             cols[1].markdown(f"<img src='{uri}' width='52'>", unsafe_allow_html=True)
-        if cols[3].button("🔮", key=f"guess::{page}::{i}", help="Guess class from the crop", disabled=not descriptors):
-            guess, _ = rio.guess_class(crop, descriptors)
-            if guess:
-                box.cls = guess
-                st.session_state[f"cls::{page}::{i}"] = guess  # override the selectbox widget state
-                st.rerun()
-        if cols[4].button("🗑", key=f"del::{page}::{i}", help="Delete this box"):
+        if cols[3].button("🔮", key=f"guess::{box.uid}", help="Guess class from the crop", disabled=not descriptors):
+            st.session_state["guess_uid"] = box.uid
+            st.rerun()
+        if cols[4].button("🗑", key=f"del::{box.uid}", help="Delete this box"):
+            snapshot()
             boxes.pop(i)
             st.rerun()
 
