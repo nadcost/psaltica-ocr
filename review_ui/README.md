@@ -27,17 +27,21 @@ It expects (defaults, all under the repo):
    **glyph** of its assigned class. Fix the class by sight via the searchable
    picker, or **🗑** to delete a false positive. Use the group filter + panel
    paging for dense pages.
-4. **➕ Add a missed box** with a small x1/y1/x2/y2 form (pixel coords).
+4. **Add a missed glyph**: pick its class (glyph preview shown), tick
+   **Draw mode**, and **drag a rectangle** over it on the page. The drag maps to
+   true page pixels (no offset), so the box lands where you draw it.
 5. **Save page corrections** → `data/corrections/<page>/detections.yolo`.
 6. **Export YOLO dataset** → `data/datasets/review_export/` (images/labels +
    `dataset.yaml`), ready for detector training.
 
 ## Notes / v1 limits
 
-- Canvas-free by design: `streamlit-drawable-canvas` mis-scales click
-  coordinates inside Streamlit's iframe on HiDPI displays (boxes drift from the
-  cursor), so v1 uses an overlay + list instead. Adding boxes is numeric for
-  now; freeform drawing returns if/when a reliable canvas is available.
+- Box geometry uses `streamlit-image-coordinates` (click/drag → real image
+  pixels), not `streamlit-drawable-canvas`, which mis-scales clicks inside
+  Streamlit's iframe on HiDPI displays (boxes drifted from the cursor). Existing
+  boxes are corrected from the list (class + delete); drawing is for additions.
+- The autolabeler over-detects (hundreds of boxes/page); use the group filter
+  and panel paging to work through them, deleting false positives.
 - Coordinate/YOLO maths is in `review_io.py` and unit-tested
   (`tests/test_review_io.py`); the Streamlit wiring is not auto-tested.
 - Later versions add the other correction tracks (cluster grouping, reading

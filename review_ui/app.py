@@ -127,39 +127,52 @@ def main() -> None:
     view = st.sidebar.number_input("Panel page", 1, total_views, 1) - 1
     view_indices = indices[view * per_view : (view + 1) * per_view]
 
-    left, right = st.columns([3, 2])
-    with left:
-        st.image(_overlay(image, boxes, set(view_indices), display_width),
-                 caption=f"{page} — {len(boxes)} boxes (this panel page highlighted)")
+    overlay = _overlay(image, boxes, set(view_indices), display_width)
+    draw_mode = st.checkbox("✏️ Draw mode — drag a rectangle on the page to add a box")
+    new_cls = st.selectbox("New-box class (for boxes you draw)", classes, key="add_cls")
+    glyph = _glyph_uri(new_cls, str(DEFAULT_SYMBOL_MAP))
+    if glyph:
+        st.markdown(f"new box → <img src='{glyph}' width='40'> `{new_cls}`", unsafe_allow_html=True)
 
-    with right:
-        st.markdown(f"**{len(boxes)} boxes** · classes assigned: {sum(1 for b in boxes if b.cls)}")
-        with st.expander("➕ Add a missed box"):
-            a = st.columns(4)
-            x1 = a[0].number_input("x1", 0, width, 0)
-            y1 = a[1].number_input("y1", 0, height, 0)
-            x2 = a[2].number_input("x2", 0, width, min(width, 60))
-            y2 = a[3].number_input("y2", 0, height, min(height, 60))
-            new_cls = st.selectbox("class", classes, key="add_cls")
-            if st.button("Add box") and x2 > x1 and y2 > y1:
-                boxes.append(rio.Box(new_cls, x1, y1, x2, y2, source="added"))
-                st.rerun()
+    if draw_mode:
+        from streamlit_image_coordinates import streamlit_image_coordinates
 
-        for i in view_indices:
-            box = boxes[i]
-            cols = st.columns([1, 1, 4, 1])
-            crop = image[max(0, int(box.y1)): int(box.y2), max(0, int(box.x1)): int(box.x2)]
-            if crop.size:
-                cols[0].image(crop, caption=f"#{i}", width=64)
-            default = classes.index(box.cls) if box.cls in classes else 0
-            box.cls = cols[2].selectbox(f"class #{i}", classes, index=default,
-                                        key=f"cls::{page}::{i}", label_visibility="collapsed")
-            uri = _glyph_uri(box.cls, str(DEFAULT_SYMBOL_MAP))
-            if uri:
-                cols[1].markdown(f"<img src='{uri}' width='52'>", unsafe_allow_html=True)
-            if cols[3].button("🗑", key=f"del::{page}::{i}", help="Delete this box"):
-                boxes.pop(i)
+        st.caption("Drag from one corner of the missed glyph to the opposite corner. "
+                   "The new box gets the class selected above; fix it in the list if needed.")
+        result = streamlit_image_coordinates(overlay, width=display_width, click_and_drag=True, key=f"draw::{page}")
+        if result and result.get("x2") is not None:
+            sig = (result["x1"], result["y1"], result["x2"], result["y2"])
+            big = abs(result["x2"] - result["x1"]) > 2 and abs(result["y2"] - result["y1"]) > 2
+            if big and st.session_state.get(f"lastdraw::{page}") != sig:
+                st.session_state[f"lastdraw::{page}"] = sig
+                factor = width / display_width  # coords come back in the displayed-image space
+                xs = sorted([result["x1"] * factor, result["x2"] * factor])
+                ys = sorted([result["y1"] * factor, result["y2"] * factor])
+                boxes.append(rio.Box(new_cls, max(0, xs[0]), max(0, ys[0]),
+                                     min(width, xs[1]), min(height, ys[1]), source="added"))
                 st.rerun()
+    else:
+        st.image(overlay, width=display_width,
+                 caption=f"{page} — {len(boxes)} boxes (current panel page highlighted)")
+
+    st.markdown(f"**{len(boxes)} boxes** · classes assigned: {sum(1 for b in boxes if b.cls)} · "
+                f"showing #{view_indices[0] if view_indices else 0}–{view_indices[-1] if view_indices else 0}")
+
+    for i in view_indices:
+        box = boxes[i]
+        cols = st.columns([1, 1, 4, 1])
+        crop = image[max(0, int(box.y1)): int(box.y2), max(0, int(box.x1)): int(box.x2)]
+        if crop.size:
+            cols[0].image(crop, caption=f"#{i}", width=64)
+        default = classes.index(box.cls) if box.cls in classes else 0
+        box.cls = cols[2].selectbox(f"class #{i}", classes, index=default,
+                                    key=f"cls::{page}::{i}", label_visibility="collapsed")
+        uri = _glyph_uri(box.cls, str(DEFAULT_SYMBOL_MAP))
+        if uri:
+            cols[1].markdown(f"<img src='{uri}' width='52'>", unsafe_allow_html=True)
+        if cols[3].button("🗑", key=f"del::{page}::{i}", help="Delete this box"):
+            boxes.pop(i)
+            st.rerun()
 
     c1, c2 = st.columns(2)
     if c1.button("💾 Save page corrections", type="primary"):
