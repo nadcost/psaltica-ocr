@@ -14,6 +14,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=Path("data/annotations/label_studio_tasks.json"))
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument(
+        "--pages-file",
+        type=Path,
+        help="File with one page image path per line; emit only these pages, in this order",
+    )
+    parser.add_argument(
         "--local-files-root",
         type=Path,
         default=Path("."),
@@ -67,12 +72,25 @@ def task_rows(
     return tasks
 
 
+def order_by_pages_file(rows: list[dict[str, str]], pages_file: Path) -> list[dict[str, str]]:
+    """Keep only manifest rows whose image_path is listed, in the file's order."""
+    wanted = [line.strip() for line in pages_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    by_path = {row["image_path"]: row for row in rows}
+    ordered = [by_path[path] for path in wanted if path in by_path]
+    missing = [path for path in wanted if path not in by_path]
+    if missing:
+        print(f"warning: {len(missing)} listed pages not in manifest (e.g. {missing[0]})")
+    return ordered
+
+
 def main() -> None:
     args = parse_args()
     rows = read_manifest(args.manifest)
+    if args.pages_file:
+        rows = order_by_pages_file(rows, args.pages_file)
     tasks = task_rows(
         rows,
-        limit=args.limit,
+        limit=args.limit if not args.pages_file else 0,
         skip_blank=args.skip_blank,
         local_files_root=args.local_files_root.resolve(),
     )
