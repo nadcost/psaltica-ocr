@@ -242,7 +242,12 @@ def audit_gold(
             raise FileNotFoundError(f"unreadable gold page: {page.image_path}")
         for gold in page.rows:
             direction_hint = gold.direction if gold.direction in ("ltr", "rtl") else None
-            line = adapter.recognize_line(image, gold.bbox, direction_hint=direction_hint)
+            # The gold script is the book/layout context a real run would supply;
+            # using it isolates OCR *text* accuracy from script-identification.
+            script_hint = gold.script if gold.script in ("Greek", "Latin", "Arabic") else None
+            line = adapter.recognize_line(
+                image, gold.bbox, direction_hint=direction_hint, script_hint=script_hint
+            )
             rows.append(score_row(line.text, gold, page.image_path))
     return AuditReport(engine=adapter.engine_name, rows=tuple(rows))
 

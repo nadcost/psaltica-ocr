@@ -1,0 +1,148 @@
+{
+  "pages": [
+    {
+      "image_path": "data/lyric_synth/row_00_greek.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 312,
+            "y2": 68
+          },
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Κυριε ελεησον"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_01_greek.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 282,
+            "y2": 67
+          },
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Αγιος ο Θεος"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_02_greek.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 419,
+            "y2": 68
+          },
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Δοξα Πατρι και Υιω"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_03_latin.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 350,
+            "y2": 68
+          },
+          "script": "Latin",
+          "direction": "ltr",
+          "text": "Lord have mercy"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_04_latin.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 476,
+            "y2": 68
+          },
+          "script": "Latin",
+          "direction": "ltr",
+          "text": "Holy God Holy Mighty"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_05_latin.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 390,
+            "y2": 68
+          },
+          "script": "Latin",
+          "direction": "ltr",
+          "text": "Glory to the Father"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_06_arabic.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 224,
+            "y2": 74
+          },
+          "script": "Arabic",
+          "direction": "rtl",
+          "text": "يا رب ارحم"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_07_arabic.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 213,
+            "y2": 74
+          },
+          "script": "Arabic",
+          "direction": "rtl",
+          "text": "قدوس الله"
+        }
+      ]
+    },
+    {
+      "image_path": "data/lyric_synth/row_08_arabic.png",
+      "rows": [
+        {
+          "bbox": {
+            "x1": 24,
+            "y1": 24,
+            "x2": 232,
+            "y2": 68
+          },
+          "script": "Arabic",
+          "direction": "rtl",
+          "text": "المجد للاب"
+        }
+      ]
+    }
+  ]
+}

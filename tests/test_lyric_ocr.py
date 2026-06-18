@@ -128,11 +128,12 @@ def test_recognize_line_direction_hint_overrides_script() -> None:
     assert line.direction == "rtl"
 
 
-def test_recognize_line_passes_all_languages_to_backend() -> None:
+def test_recognize_line_tries_each_focused_script_pack() -> None:
     backend = FakeBackend(RawOcr(text="x", words=(), confidence=0.0))
     adapter = LyricOcr(backend)
     adapter.recognize_line(_blank_page(), BoundingBox(0, 0, 50, 20))
-    assert backend.calls[0][1] == ("ell", "eng", "ara")
+    used = {langs for _, langs in backend.calls}
+    assert used == {("ell",), ("eng",), ("ara",)}
 
 
 def test_levenshtein_and_error_rates() -> None:

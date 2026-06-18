@@ -200,12 +200,16 @@ class LyricOcr:
         self,
         backend: LyricOcrBackend,
         *,
-        languages: Sequence[str] = ALL_LANGUAGES,
         languages_by_script: Mapping[Script, Sequence[str]] = DEFAULT_LANGUAGES,
     ) -> None:
         self.backend = backend
-        self.languages = tuple(languages)
         self.languages_by_script = dict(languages_by_script)
+        # Concrete single-script packs to try; the result with the highest mean
+        # confidence wins. Running packs separately avoids the cross-script
+        # confusion a combined "ell+eng+ara" run produces (Greek read as digits).
+        self.candidate_scripts: tuple[Script, ...] = tuple(
+            script for script in ("Greek", "Latin", "Arabic") if script in self.languages_by_script
+        )
 
     @property
     def engine_name(self) -> str:
@@ -217,15 +221,33 @@ class LyricOcr:
         bbox: BoundingBox,
         *,
         direction_hint: Direction | None = None,
+        script_hint: Script | None = None,
     ) -> LyricLine:
-        """OCR a single lyric row given the page image and the row's box."""
+        """OCR a single lyric row given the page image and the row's box.
+
+        When ``script_hint`` is known (from book/layout context), only that
+        script's pack is run, which is both faster and avoids cross-script
+        confusion (e.g. the Latin pack transliterating Greek with comparable
+        confidence). Without a hint, the row is OCR'd once per pack and the most
+        confident result wins; script is then taken from the recognized text,
+        falling back to the winning pack when the text is non-alphabetic.
+        """
 
         crop = image[bbox.y1 : bbox.y2, bbox.x1 : bbox.x2]
-        raw = self.backend.run(crop, languages=self.languages, direction=direction_hint or "ltr")
+        if script_hint in self.languages_by_script and script_hint in self.candidate_scripts:
+            direction = direction_hint or script_direction(script_hint)
+            raw = self.backend.run(crop, languages=self.languages_by_script[script_hint], direction=direction)
+            winning_script = script_hint
+        else:
+            winning_script, raw = self._best_candidate(crop, direction_hint)
 
         raw_text = raw.text
         text = normalize_text(raw_text)
-        script = detect_script(text)
+        if script_hint in self.candidate_scripts:
+            script = script_hint  # trust supplied context over text heuristic
+        else:
+            detected = detect_script(text)
+            script = detected if detected not in ("unknown", "mixed") else winning_script
         direction = direction_hint or script_direction(script)
 
         boxes_from_geometry = not raw.words
@@ -245,6 +267,29 @@ class LyricOcr:
             tokens=tokens,
             boxes_from_geometry=boxes_from_geometry,
         )
+
+    def _best_candidate(
+        self,
+        crop: np.ndarray,
+        direction_hint: Direction | None,
+    ) -> tuple[Script, RawOcr]:
+        """Run each script pack and return the (script, result) with top confidence."""
+
+        best: tuple[Script, RawOcr] | None = None
+        best_key = (-1.0, -1)
+        for script in self.candidate_scripts:
+            languages = self.languages_by_script[script]
+            direction = direction_hint or script_direction(script)
+            raw = self.backend.run(crop, languages=languages, direction=direction)
+            key = (raw.confidence, len(raw.words))
+            if key > best_key:
+                best_key = key
+                best = (script, raw)
+        if best is None:
+            languages = self.languages_by_script.get("unknown", ALL_LANGUAGES)
+            raw = self.backend.run(crop, languages=languages, direction=direction_hint or "ltr")
+            best = ("unknown", raw)
+        return best
 
     def recognize_layout(
         self,
@@ -387,7 +432,10 @@ class TesseractBackend:
             words.append(RawWord(text=text, bbox=BoundingBox(x, y, x + w, y + h), confidence=confidence))
             confidences.append(confidence)
 
-        ordered = sorted(words, key=lambda word: word.bbox.x1)
+        # Order words in reading direction: left-to-right, or right-to-left for
+        # Arabic so the logical word order is preserved (tesseract returns RTL
+        # words in visual order).
+        ordered = sorted(words, key=lambda word: word.bbox.x1, reverse=direction == "rtl")
         text = " ".join(word.text for word in ordered)
         mean_conf = float(np.mean(confidences)) if confidences else 0.0
         return RawOcr(text=text, words=tuple(ordered), confidence=mean_conf)
