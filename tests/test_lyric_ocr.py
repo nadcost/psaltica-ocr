@@ -13,6 +13,7 @@ from psaltica_ocr.lyric_ocr import (
     LyricOcr,
     RawOcr,
     RawWord,
+    TesseractBackend,
     detect_script,
     normalize_text,
     script_direction,
@@ -169,6 +170,26 @@ def test_audit_gold_buckets_by_script() -> None:
     assert by_script["Arabic"].word_accuracy == 0.0
     assert report.engine == "fake"
     assert report.to_dict()["overall"]["word_accuracy"] < 1.0
+
+
+def test_tesseract_backend_falls_back_to_psm6_when_psm7_empty(monkeypatch) -> None:
+    import pytesseract
+
+    empty = {"text": [""], "conf": ["-1"], "left": [0], "top": [0], "width": [0], "height": [0]}
+    found = {"text": ["word"], "conf": ["90"], "left": [5], "top": [1], "width": [20], "height": [10]}
+    seen_psm: list[str] = []
+
+    def fake_image_to_data(crop, lang, config, output_type):
+        seen_psm.append(config)
+        return found if "--psm 6" in config else empty
+
+    monkeypatch.setattr(pytesseract, "image_to_data", fake_image_to_data)
+    backend = TesseractBackend()
+    result = backend.run(np.zeros((20, 80), dtype=np.uint8), languages=["ell"], direction="ltr")
+
+    assert any("--psm 7" in c for c in seen_psm)
+    assert any("--psm 6" in c for c in seen_psm)
+    assert result.text == "word"
 
 
 @pytest.mark.parametrize(

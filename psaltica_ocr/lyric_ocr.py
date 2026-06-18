@@ -398,8 +398,11 @@ class TesseractBackend:
 
     name = "tesseract-v0"
 
-    def __init__(self, *, psm: int = 7, min_confidence: float = 0.0) -> None:
+    def __init__(self, *, psm: int = 7, fallback_psm: int | None = 6, min_confidence: float = 0.0) -> None:
         self.psm = psm
+        # Syllabic lyric rows with large inter-syllable gaps make --psm 7
+        # (single line) return nothing; --psm 6 (uniform block) recovers them.
+        self.fallback_psm = fallback_psm
         self.min_confidence = min_confidence
 
     def run(self, crop: np.ndarray, *, languages: Sequence[str], direction: Direction) -> RawOcr:
@@ -412,9 +415,14 @@ class TesseractBackend:
                 "and install the tesseract binary (brew install tesseract tesseract-lang)."
             ) from exc
 
+        result = self._run_psm(crop, languages, direction, self.psm, pytesseract, Output)
+        if not result.words and self.fallback_psm is not None and self.fallback_psm != self.psm:
+            result = self._run_psm(crop, languages, direction, self.fallback_psm, pytesseract, Output)
+        return result
+
+    def _run_psm(self, crop, languages, direction, psm, pytesseract, Output) -> RawOcr:
         lang = "+".join(languages)
-        config = f"--psm {self.psm}"
-        data = pytesseract.image_to_data(crop, lang=lang, config=config, output_type=Output.DICT)
+        data = pytesseract.image_to_data(crop, lang=lang, config=f"--psm {psm}", output_type=Output.DICT)
 
         words: list[RawWord] = []
         confidences: list[float] = []

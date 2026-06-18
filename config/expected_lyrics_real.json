@@ -1,5 +1,5 @@
 {
-  "_doc": "Real-print lyric OCR gold, hand-transcribed from the local page corpus (image paths under gitignored data/, so scoring requires the local corpus). Rows are the syllabic 'Κυριε ελεησον' Greek lyric lines printed under each neume block on Mass/page_0498, each opening with an ornamental drop-cap Kappa. This Greek-Arabic Mass book carries Arabic only as page furniture (headers), not as lyric rows, so real Arabic-lyric accuracy stays on the synthetic benchmark until an Arabic-lyric source is added. Score: PATH=/opt/homebrew/bin:$PATH uv run python tools/audit_lyric_ocr.py score --gold config/expected_lyrics_real.json --output data/lyric_ocr_report_real.json",
+  "_doc": "Real-print lyric OCR gold, hand-transcribed from the local page corpus (image paths under gitignored data/, so scoring requires the local corpus). page_0498: four syllabic 'Κυριε ελεησον' Greek lyric rows, each opening with an ornamental drop-cap Kappa. page_0487 (bilingual): the red Arabic subtitle (clean running Arabic), two syllabic Arabic lyric rows, and two syllabic Greek lyric rows. Conventions: text is the printed glyphs in visual left-to-right order (both scripts' syllables are laid out under the L->R neumes); Arabic is transcribed as BASE LETTERS WITHOUT harakat (the import-relevant signal), so harakat the engine emits counts against it. Syllabic rows with large inter-syllable gaps need TesseractBackend's --psm 7 -> --psm 6 fallback. Score: PATH=/opt/homebrew/bin:$PATH uv run python tools/audit_lyric_ocr.py score --gold config/expected_lyrics_real.json --output data/lyric_ocr_report_real.json",
   "pages": [
     {
       "image_path": "data/pages_full/Mass/page_0498.png",
@@ -27,6 +27,35 @@
           "script": "Greek",
           "direction": "ltr",
           "text": "Κ υ ρι ε ε λε η σον"
+        }
+      ]
+    },
+    {
+      "image_path": "data/pages_full/Mass/page_0487.png",
+      "rows": [
+        {
+          "bbox": {"x1": 903, "y1": 551, "x2": 1578, "y2": 639},
+          "script": "Arabic",
+          "direction": "rtl",
+          "text": "لترتفع صلاتي – باللحن الأول"
+        },
+        {
+          "bbox": {"x1": 470, "y1": 945, "x2": 1919, "y2": 1015},
+          "script": "Arabic",
+          "direction": "rtl",
+          "text": "لتر تفع صلا تي كالبخو ر أ ما مك"
+        },
+        {
+          "bbox": {"x1": 260, "y1": 1705, "x2": 2120, "y2": 1800},
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "Κ α τευ θυν θη τω η προσευ χη μου ως θυ μι"
+        },
+        {
+          "bbox": {"x1": 478, "y1": 1975, "x2": 2093, "y2": 2075},
+          "script": "Greek",
+          "direction": "ltr",
+          "text": "ι α μα ε νω πι ο ον σου ε παρσις τω ων χει ρων"
         }
       ]
     }
