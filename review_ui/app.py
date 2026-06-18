@@ -21,9 +21,34 @@ import cv2
 import numpy as np
 import streamlit as st
 from PIL import Image
-from streamlit_drawable_canvas import st_canvas
 
-from review_ui import review_io as rio
+
+def _install_canvas_compat() -> None:
+    """Shim for streamlit-drawable-canvas 0.9.3 on Streamlit >= 1.30.
+
+    The canvas calls ``streamlit.elements.image.image_to_url(image, width, ...)``,
+    which moved to ``streamlit.elements.lib.image_utils`` and now takes a
+    ``LayoutConfig`` instead of an int width. Re-expose the old name/signature.
+    """
+
+    import streamlit.elements.image as st_image
+
+    if hasattr(st_image, "image_to_url"):
+        return
+    from streamlit.elements.lib.image_utils import image_to_url as _new_image_to_url
+    from streamlit.elements.lib.layout_utils import LayoutConfig
+
+    def image_to_url(image, width, clamp, channels, output_format, image_id):
+        return _new_image_to_url(image, LayoutConfig(width=width), clamp, channels, output_format, image_id)
+
+    st_image.image_to_url = image_to_url
+
+
+_install_canvas_compat()
+
+from streamlit_drawable_canvas import st_canvas  # noqa: E402
+
+from review_ui import review_io as rio  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PAGES_FILE = ROOT / "data/annotations/pages_50.txt"
