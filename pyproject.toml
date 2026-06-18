@@ -12,6 +12,7 @@ dependencies = [
     "pdf2image",
     "pillow",
     "pydantic",
+    "pytesseract",
     "pyyaml",
     "streamlit",
     "ultralytics",

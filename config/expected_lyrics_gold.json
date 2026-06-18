@@ -1,0 +1,16 @@
+{
+  "_doc": "Lyric OCR gold fixture. Each page lists its lyric rows with a pixel bbox, the true script (Greek|Latin|Arabic|mixed), reading direction (ltr|rtl), and the normalized (NFC) expected text. Score with: uv run python tools/audit_lyric_ocr.py score. Bootstrap row boxes from layout segmentation with: uv run python tools/audit_lyric_ocr.py bootstrap --pages <png...>. Requires the tesseract binary + language packs (brew install tesseract tesseract-lang).",
+  "_example": {
+    "image_path": "data/pages/book_001/page_0007.png",
+    "rows": [
+      {
+        "chant_row_index": 0,
+        "bbox": {"x1": 120, "y1": 210, "x2": 880, "y2": 240},
+        "script": "Greek",
+        "direction": "ltr",
+        "text": "Κύριε ἐλέησον"
+      }
+    ]
+  },
+  "pages": []
+}
