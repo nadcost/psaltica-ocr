@@ -17,25 +17,28 @@ It expects (defaults, all under the repo):
   page just starts empty without it).
 - `config/classes.yaml`, `config/symbol_map.json` — class list and glyphs.
 
-## Workflow
+## Workflow (correction-first, canvas-free)
 
-1. Pick a page in the sidebar. Predicted boxes load onto the canvas (or your
-   previously-saved corrections if any).
-2. **Tool = transform**: select / move / resize / delete boxes (canvas toolbar
-   has undo/redo/trash). **Tool = rect**: draw a new box for a missed glyph.
-3. In the panel below, each box shows its **crop** next to the **glyph** of its
-   currently-assigned class — fix the class by sight via the searchable picker.
-   Use the group filter + panel paging to work through dense pages.
-4. **Save page corrections** → writes `data/corrections/<page>/detections.yolo`.
-5. **Export YOLO dataset** → `data/datasets/review_export/` (images/labels +
+1. Pick a page in the sidebar. Predicted boxes (or your saved corrections) load.
+2. The left pane shows the page with every box overlaid and numbered — a static
+   image, so there is **no click-coordinate offset**. The boxes for the current
+   panel page are drawn thicker.
+3. The right pane lists those boxes: each shows its **crop** next to the
+   **glyph** of its assigned class. Fix the class by sight via the searchable
+   picker, or **🗑** to delete a false positive. Use the group filter + panel
+   paging for dense pages.
+4. **➕ Add a missed box** with a small x1/y1/x2/y2 form (pixel coords).
+5. **Save page corrections** → `data/corrections/<page>/detections.yolo`.
+6. **Export YOLO dataset** → `data/datasets/review_export/` (images/labels +
    `dataset.yaml`), ready for detector training.
 
 ## Notes / v1 limits
 
-- Geometry lives on the canvas; classes are tracked per box index in session
-  state. Deleting a box mid-list can shift indices — re-check classes after
-  large deletions.
-- Coordinate/YOLO/canvas maths is in `review_io.py` and unit-tested
+- Canvas-free by design: `streamlit-drawable-canvas` mis-scales click
+  coordinates inside Streamlit's iframe on HiDPI displays (boxes drift from the
+  cursor), so v1 uses an overlay + list instead. Adding boxes is numeric for
+  now; freeform drawing returns if/when a reliable canvas is available.
+- Coordinate/YOLO maths is in `review_io.py` and unit-tested
   (`tests/test_review_io.py`); the Streamlit wiring is not auto-tested.
 - Later versions add the other correction tracks (cluster grouping, reading
   order, composition, lyrics, alignment) as `8xr`/`yyt` land.
