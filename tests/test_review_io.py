@@ -127,3 +127,22 @@ def test_guess_class_recovers_rendered_glyph() -> None:
     guess, score = guess_class(crop, descriptors)
     assert guess == target
     assert score > 0.5
+
+
+def test_guess_from_exemplars_matches_same_glyph() -> None:
+    from pathlib import Path
+
+    from psaltica_ocr.template_matching import load_symbol_map, render_template
+
+    from review_ui.review_io import crop_descriptor, guess_from_exemplars
+
+    inserts = load_symbol_map(Path("config/symbol_map.json"))
+    if "Oligon" not in inserts or "Petasti" not in inserts:
+        pytest.skip("font unavailable")
+    exemplars = [
+        ("base_neume.Oligon", crop_descriptor(render_template(inserts["Oligon"], 8.0))),
+        ("base_neume.Petasti", crop_descriptor(render_template(inserts["Petasti"], 8.0))),
+    ]
+    # A different rendering of Oligon should match the Oligon exemplar.
+    guess, score = guess_from_exemplars(render_template(inserts["Oligon"], 9.5), exemplars)
+    assert guess == "base_neume.Oligon"

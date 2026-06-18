@@ -63,6 +63,23 @@ def _glyph_descriptors(classes_path: str, symbol_map_path: str) -> dict:
     return rio.build_glyph_descriptors(_class_names(classes_path), _icon_inserts(symbol_map_path))
 
 
+def _session_exemplars(image, boxes, per_class: int = 6) -> list:
+    """(class, descriptor) of crops you've labelled this session — across pages,
+    capped per class. These match the real printed typeface, unlike font glyphs."""
+    cache = st.session_state.setdefault("exemplar_desc", {})
+    for box in boxes:
+        if box.cls:
+            key = (box.uid, box.cls)
+            if key not in cache:
+                crop = image[max(0, int(box.y1)): int(box.y2), max(0, int(box.x1)): int(box.x2)]
+                if crop.size:
+                    cache[key] = rio.crop_descriptor(crop)
+    by_class: dict[str, list] = {}
+    for (_uid, cls), desc in cache.items():
+        by_class.setdefault(cls, []).append(desc)
+    return [(cls, desc) for cls, descs in by_class.items() for desc in descs[-per_class:]]
+
+
 def _load_pages(pages_file: Path) -> list[str]:
     if not pages_file.exists():
         return []
@@ -105,7 +122,6 @@ def main() -> None:
     st.title("Psaltica OCR — detection review")
 
     classes = _class_names(str(DEFAULT_CLASSES))
-    descriptors = _glyph_descriptors(str(DEFAULT_CLASSES), str(DEFAULT_SYMBOL_MAP))
     preds = _predictions(str(DEFAULT_PREDICTIONS))
     pages = _load_pages(DEFAULT_PAGES_FILE)
     if not pages:
@@ -133,6 +149,16 @@ def main() -> None:
     if box_key not in st.session_state:
         st.session_state[box_key] = _initial_boxes(image_path, width, height, classes)
     boxes: list[rio.Box] = st.session_state[box_key]
+
+    exemplars = _session_exemplars(image, boxes)
+
+    def guess_cls(crop) -> str:
+        # Prefer what you've already labelled (real typeface); fall back to the
+        # font glyph only weakly. Below the confidence gate, leave unassigned.
+        cls, score = rio.guess_from_exemplars(crop, exemplars)
+        if cls and score >= 0.40:
+            return cls
+        return ""
 
     undo_key, redo_key = f"undo::{page}", f"redo::{page}"
 
@@ -173,7 +199,7 @@ def main() -> None:
     if pending_uid:
         for b in boxes:
             if b.uid == pending_uid:
-                guess, _ = rio.guess_class(image[int(b.y1):int(b.y2), int(b.x1):int(b.x2)], descriptors)
+                guess = guess_cls(image[int(b.y1):int(b.y2), int(b.x1):int(b.x2)])
                 if guess:
                     b.cls = guess
                     st.session_state[f"cls::{b.uid}"] = guess
@@ -188,10 +214,13 @@ def main() -> None:
 
     c_draw, c_guess = st.columns(2)
     draw_mode = c_draw.checkbox("✏️ Draw mode — click two opposite corners of a glyph")
-    auto_guess = c_guess.checkbox("🔮 Auto-guess class", value=False,
-                                  help="Font-glyph match — unreliable on the printed typeface until it "
-                                       "learns from your labels. Off by default: drawn boxes start "
-                                       "unassigned and you pick the class.")
+    auto_guess = c_guess.checkbox("🔮 Auto-guess from your labels", value=True,
+                                  help="A drawn box is matched against glyphs you've already labelled this "
+                                       "session; it auto-fills only on a confident match, else stays "
+                                       "unassigned. Label the first of each glyph and the repeats fill in.")
+    if exemplars:
+        st.caption(f"learning from {len(exemplars)} labelled examples across "
+                   f"{len({c for c, _ in exemplars})} glyph classes")
 
     if draw_mode:
         from streamlit_image_coordinates import streamlit_image_coordinates
@@ -213,8 +242,7 @@ def main() -> None:
                     x1b, y1b, x2b, y2b = max(0, xs[0]), max(0, ys[0]), min(width, xs[1]), min(height, ys[1])
                     cls = ""  # unassigned by default — you pick it in the list
                     if auto_guess and x2b > x1b and y2b > y1b:
-                        guess, _ = rio.guess_class(image[int(y1b):int(y2b), int(x1b):int(x2b)], descriptors)
-                        cls = guess or ""
+                        cls = guess_cls(image[int(y1b):int(y2b), int(x1b):int(x2b)])
                     snapshot()
                     boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
                     st.session_state.pop(f"pend::{page}", None)
@@ -240,7 +268,7 @@ def main() -> None:
         uri = _glyph_uri(box.cls, str(DEFAULT_SYMBOL_MAP))
         if uri:
             cols[1].markdown(f"<img src='{uri}' width='52'>", unsafe_allow_html=True)
-        if cols[3].button("🔮", key=f"guess::{box.uid}", help="Guess class from the crop", disabled=not descriptors):
+        if cols[3].button("🔮", key=f"guess::{box.uid}", help="Guess from your labelled examples"):
             st.session_state["guess_uid"] = box.uid
             st.rerun()
         if cols[4].button("🗑", key=f"del::{box.uid}", help="Delete this box"):

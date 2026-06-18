@@ -122,6 +122,27 @@ def build_glyph_descriptors(
     return descriptors
 
 
+def crop_descriptor(crop_gray: np.ndarray, size: int = GLYPH_DESC_SIZE) -> np.ndarray:
+    """Public shape descriptor for a box crop (used to learn exemplars)."""
+    return _descriptor(crop_gray, size)
+
+
+def guess_from_exemplars(
+    crop_gray: np.ndarray, exemplars: list[tuple[str, np.ndarray]], size: int = GLYPH_DESC_SIZE
+) -> tuple[str | None, float]:
+    """Nearest-exemplar class for a crop — exemplars are (class, descriptor) of
+    already-labelled crops, so this matches the real printed typeface."""
+    if crop_gray is None or crop_gray.size == 0 or not exemplars:
+        return None, 0.0
+    crop_desc = _descriptor(crop_gray, size)
+    best_cls, best_score = None, -2.0
+    for cls, desc in exemplars:
+        score = float(cv2.matchTemplate(crop_desc, desc, cv2.TM_CCOEFF_NORMED)[0, 0])
+        if score > best_score:
+            best_cls, best_score = cls, score
+    return best_cls, best_score
+
+
 def guess_class(
     crop_gray: np.ndarray, descriptors: dict[str, np.ndarray], size: int = GLYPH_DESC_SIZE
 ) -> tuple[str | None, float]:
