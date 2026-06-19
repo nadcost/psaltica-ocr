@@ -3,17 +3,17 @@ train: images/train
 val: images/val
 test: images/test
 names:
-- mode.PaKey
-- mode.DhiKeyChrom
-- mode.GhaKey
-- mode.VouKey
-- mode.KeKey
-- mode.PaKeyMinore
-- mode.PaKeyChromDure
-- mode.ZoKeyDown
-- mode.NiKey
-- mode.PaKeyFrios
-- mode.KeyAjamZo
+- key_signature.PaKey
+- key_signature.DhiKeyChromDure
+- key_signature.GhaKey
+- key_signature.VouKey
+- key_signature.KeKey
+- key_signature.PaKeyMinore
+- key_signature.PaKeyChromDure
+- key_signature.ZoKeyDown
+- key_signature.NiKey
+- key_signature.PaKeyFrios
+- key_signature.KeyAjamZo
 - modifier_modulation.ModulationDiatonicNi
 - modifier_modulation.ModulationDiatonicZo
 - modifier_modulation.ModulationDiatonicKe
@@ -119,11 +119,9 @@ names:
 - key_signature.DhiKeyZygos
 - key_signature.DhiKeyChromDure(Down)
 - key_signature.DhiKeyChromDure2
-- key_signature.DhiKeyChrom
 - key_signature.DhiKeyDiatonic(Down)
 - key_signature.DhiKeyDiatonic
 - key_signature.GhaKey(Down)
-- key_signature.GhaKey
 - key_signature.GhaKeyDiatonic
 - key_signature.GhaKeyKliton
 - key_signature.GhaKey8em
@@ -133,7 +131,6 @@ names:
 - key_signature.GhaKeyChromDure
 - key_signature.GhaKeyChromDure2
 - key_signature.KeKey(Down)
-- key_signature.KeKey
 - key_signature.KeKey2
 - key_signature.KeKey8em
 - key_signature.KeKeyChromDoux
@@ -142,7 +139,6 @@ names:
 - key_signature.KeKeyChromDure(Down)
 - key_signature.KeKeyChromDure
 - key_signature.KeKeyChromDure2
-- key_signature.NiKey
 - key_signature.NiKeyChromDoux
 - key_signature.NiKeyChromDouxSup
 - key_signature.NiKeyChromDouxOctave
@@ -152,19 +148,14 @@ names:
 - key_signature.NiKeyMinore
 - key_signature.NiKeyMinore2
 - key_signature.NiKeyOctave
-- key_signature.PaKey
 - key_signature.PaKeyChromDoux
 - key_signature.PaKeyChromDouxSup
 - key_signature.PaKeyChromDouxTetr
-- key_signature.PaKeyChromDure
 - key_signature.PaKeyChromDure2
 - key_signature.PaKeyChromDureSup
-- key_signature.PaKeyFrios
 - key_signature.PaKeyFriosSup
-- key_signature.PaKeyMinore
 - key_signature.PaKeyMinoreOctave
 - key_signature.PaKeyOctave
-- key_signature.VouKey
 - key_signature.VouKeyOctave
 - key_signature.VouKeyAjam
 - key_signature.VouKeyKliton
@@ -175,26 +166,85 @@ names:
 - key_signature.VouKeyChromDure
 - key_signature.VouKeyMinore
 - key_signature.VouKeyMinoreOctave
-- key_signature.ZoKeyDown
-- key_signature.KeyAjamZo
 - key_signature.ZoKeyAjamOctave
 - key_signature.ZoKeyChromDouxOctave
 - key_signature.ZoKeyChromDouxSup
 - key_signature.ZoKeyChromDure(Sup)
 - key_signature.ZoKeyDiatOctave
 groups:
-  mode:
-  - mode.PaKey
-  - mode.DhiKeyChrom
-  - mode.GhaKey
-  - mode.VouKey
-  - mode.KeKey
-  - mode.PaKeyMinore
-  - mode.PaKeyChromDure
-  - mode.ZoKeyDown
-  - mode.NiKey
-  - mode.PaKeyFrios
-  - mode.KeyAjamZo
+  key_signature:
+  - key_signature.PaKey
+  - key_signature.DhiKeyChromDure
+  - key_signature.GhaKey
+  - key_signature.VouKey
+  - key_signature.KeKey
+  - key_signature.PaKeyMinore
+  - key_signature.PaKeyChromDure
+  - key_signature.ZoKeyDown
+  - key_signature.NiKey
+  - key_signature.PaKeyFrios
+  - key_signature.KeyAjamZo
+  - key_signature.DhiKey(Down)
+  - key_signature.DhiKey2
+  - key_signature.DhiKeyKliton
+  - key_signature.DhiKey
+  - key_signature.DhiKeyChromDoux
+  - key_signature.DhiKeyChromDouxTetr
+  - key_signature.DhiKeyZygos
+  - key_signature.DhiKeyChromDure(Down)
+  - key_signature.DhiKeyChromDure2
+  - key_signature.DhiKeyDiatonic(Down)
+  - key_signature.DhiKeyDiatonic
+  - key_signature.GhaKey(Down)
+  - key_signature.GhaKeyDiatonic
+  - key_signature.GhaKeyKliton
+  - key_signature.GhaKey8em
+  - key_signature.GhaKeyOctave
+  - key_signature.GhaKeyChromDoux
+  - key_signature.GhaKeyChromDouxTetr
+  - key_signature.GhaKeyChromDure
+  - key_signature.GhaKeyChromDure2
+  - key_signature.KeKey(Down)
+  - key_signature.KeKey2
+  - key_signature.KeKey8em
+  - key_signature.KeKeyChromDoux
+  - key_signature.KeKeyChromDouxTetr
+  - key_signature.KeKeyChromDouxTetrWithFthora
+  - key_signature.KeKeyChromDure(Down)
+  - key_signature.KeKeyChromDure
+  - key_signature.KeKeyChromDure2
+  - key_signature.NiKeyChromDoux
+  - key_signature.NiKeyChromDouxSup
+  - key_signature.NiKeyChromDouxOctave
+  - key_signature.NiKeyChromDure
+  - key_signature.NiKeyChromDure(Sup)
+  - key_signature.NiKeyChromDure2
+  - key_signature.NiKeyMinore
+  - key_signature.NiKeyMinore2
+  - key_signature.NiKeyOctave
+  - key_signature.PaKeyChromDoux
+  - key_signature.PaKeyChromDouxSup
+  - key_signature.PaKeyChromDouxTetr
+  - key_signature.PaKeyChromDure2
+  - key_signature.PaKeyChromDureSup
+  - key_signature.PaKeyFriosSup
+  - key_signature.PaKeyMinoreOctave
+  - key_signature.PaKeyOctave
+  - key_signature.VouKeyOctave
+  - key_signature.VouKeyAjam
+  - key_signature.VouKeyKliton
+  - key_signature.VouKeyChromDoux
+  - key_signature.VouKeyChromDouxTetr
+  - key_signature.VouKeyChromDure2
+  - key_signature.VouKeyZygos
+  - key_signature.VouKeyChromDure
+  - key_signature.VouKeyMinore
+  - key_signature.VouKeyMinoreOctave
+  - key_signature.ZoKeyAjamOctave
+  - key_signature.ZoKeyChromDouxOctave
+  - key_signature.ZoKeyChromDouxSup
+  - key_signature.ZoKeyChromDure(Sup)
+  - key_signature.ZoKeyDiatOctave
   modulation:
   - modifier_modulation.ModulationDiatonicNi
   - modifier_modulation.ModulationDiatonicZo
@@ -296,79 +346,6 @@ groups:
   - modifier_isson.Zo
   - modifier_isson.Ni
   - modifier_isson.Melo
-  key_signature:
-  - key_signature.DhiKey(Down)
-  - key_signature.DhiKey2
-  - key_signature.DhiKeyKliton
-  - key_signature.DhiKey
-  - key_signature.DhiKeyChromDoux
-  - key_signature.DhiKeyChromDouxTetr
-  - key_signature.DhiKeyZygos
-  - key_signature.DhiKeyChromDure(Down)
-  - key_signature.DhiKeyChromDure2
-  - key_signature.DhiKeyChrom
-  - key_signature.DhiKeyDiatonic(Down)
-  - key_signature.DhiKeyDiatonic
-  - key_signature.GhaKey(Down)
-  - key_signature.GhaKey
-  - key_signature.GhaKeyDiatonic
-  - key_signature.GhaKeyKliton
-  - key_signature.GhaKey8em
-  - key_signature.GhaKeyOctave
-  - key_signature.GhaKeyChromDoux
-  - key_signature.GhaKeyChromDouxTetr
-  - key_signature.GhaKeyChromDure
-  - key_signature.GhaKeyChromDure2
-  - key_signature.KeKey(Down)
-  - key_signature.KeKey
-  - key_signature.KeKey2
-  - key_signature.KeKey8em
-  - key_signature.KeKeyChromDoux
-  - key_signature.KeKeyChromDouxTetr
-  - key_signature.KeKeyChromDouxTetrWithFthora
-  - key_signature.KeKeyChromDure(Down)
-  - key_signature.KeKeyChromDure
-  - key_signature.KeKeyChromDure2
-  - key_signature.NiKey
-  - key_signature.NiKeyChromDoux
-  - key_signature.NiKeyChromDouxSup
-  - key_signature.NiKeyChromDouxOctave
-  - key_signature.NiKeyChromDure
-  - key_signature.NiKeyChromDure(Sup)
-  - key_signature.NiKeyChromDure2
-  - key_signature.NiKeyMinore
-  - key_signature.NiKeyMinore2
-  - key_signature.NiKeyOctave
-  - key_signature.PaKey
-  - key_signature.PaKeyChromDoux
-  - key_signature.PaKeyChromDouxSup
-  - key_signature.PaKeyChromDouxTetr
-  - key_signature.PaKeyChromDure
-  - key_signature.PaKeyChromDure2
-  - key_signature.PaKeyChromDureSup
-  - key_signature.PaKeyFrios
-  - key_signature.PaKeyFriosSup
-  - key_signature.PaKeyMinore
-  - key_signature.PaKeyMinoreOctave
-  - key_signature.PaKeyOctave
-  - key_signature.VouKey
-  - key_signature.VouKeyOctave
-  - key_signature.VouKeyAjam
-  - key_signature.VouKeyKliton
-  - key_signature.VouKeyChromDoux
-  - key_signature.VouKeyChromDouxTetr
-  - key_signature.VouKeyChromDure2
-  - key_signature.VouKeyZygos
-  - key_signature.VouKeyChromDure
-  - key_signature.VouKeyMinore
-  - key_signature.VouKeyMinoreOctave
-  - key_signature.ZoKeyDown
-  - key_signature.KeyAjamZo
-  - key_signature.ZoKeyAjamOctave
-  - key_signature.ZoKeyChromDouxOctave
-  - key_signature.ZoKeyChromDouxSup
-  - key_signature.ZoKeyChromDure(Sup)
-  - key_signature.ZoKeyDiatOctave
 source_meta:
   generatedBy: tools/_extract_symbol_map.ts
   praxisRoot: /Users/nadcost/psaltica-praxis

@@ -13,7 +13,12 @@ from typing import Any
 
 import yaml
 
-from psaltica_ocr.symbol_map import SymbolMap, load_symbol_map
+from psaltica_ocr.symbol_map import (
+    SymbolMap,
+    canonical_class_name,
+    group_for_class_name,
+    load_symbol_map,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -55,11 +60,13 @@ def build_classes(symbol_map: SymbolMap) -> dict[str, Any]:
     groups: dict[str, list[str]] = {}
     raw = symbol_map.model_dump(by_alias=True)
     for symbol in raw["symbols"]:
-        name = class_name(symbol)
+        # Canonicalize so visually identical glyphs (mode vs key signature, and
+        # same-GIF aliases) collapse to one class — see canonical_class_name.
+        name = canonical_class_name(class_name(symbol))
         if name in names:
             continue
         names.append(name)
-        groups.setdefault(symbol["group"], []).append(name)
+        groups.setdefault(group_for_class_name(name), []).append(name)
 
     return {
         "path": "../data/datasets",

@@ -68,3 +68,37 @@ def load_symbol_map(path: str | Path = "config/symbol_map.json") -> SymbolMap:
 
     with Path(path).open("r", encoding="utf-8") as handle:
         return SymbolMap.model_validate(json.load(handle))
+
+
+# --------------------------------------------------------------------------- #
+# Class-name canonicalization
+# --------------------------------------------------------------------------- #
+# Visually identical glyphs must be ONE detection class — a detector sees pixels,
+# not musical role. Mode martyria and key signatures share the same artwork (the
+# mode-vs-key role is recovered downstream from position), and a few keys carry
+# duplicate icon/label names for the same GIF. Collapsing them here keeps training
+# labels unambiguous. Applied by both the sync tool and the in-place migration.
+
+# Same-artwork keys that the extractor emits under two names → one canonical name.
+CLASS_ALIASES: dict[str, str] = {
+    "key_signature.DhiKeyChrom": "key_signature.DhiKeyChromDure",
+}
+
+_PREFIX_TO_GROUP = {
+    "base_neume": "neume",
+    "modifier_gorgon": "gorgon",
+    "modifier_modulation": "modulation",
+    "modifier_isson": "isson",
+}
+
+
+def canonical_class_name(name: str) -> str:
+    """Fold ``mode.X`` into ``key_signature.X`` and apply same-glyph aliases."""
+    if name.startswith("mode."):
+        name = "key_signature." + name.split(".", 1)[1]
+    return CLASS_ALIASES.get(name, name)
+
+
+def group_for_class_name(name: str) -> str:
+    """The classes.yaml ``groups`` key for a class name (inverse of class_name)."""
+    return _PREFIX_TO_GROUP.get(name.split(".", 1)[0], name.split(".", 1)[0])
