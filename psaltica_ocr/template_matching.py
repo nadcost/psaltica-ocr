@@ -9,7 +9,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 
 FONT_PATH = Path("/Users/nadcost/psaltica-praxis/app/assets/fonts/PsalticaPraxisUnified.ttf")
@@ -73,7 +73,12 @@ def render_template(insert: str, pt: float) -> np.ndarray | None:
 
 
 def render_glyph_b64(insert: str, size_px: int = GLYPH_RENDER_PX, thumb_px: int = 64) -> str:
-    """Render insert string anti-aliased and return a base64 PNG for HTML embedding."""
+    """Render insert string anti-aliased and return a base64 PNG for HTML embedding.
+
+    The glyph is trimmed to its ink, then pasted centered into a square canvas
+    with aspect ratio preserved (not stretched to fill), so the thumbnail matches
+    what the matcher's descriptor sees and tall/narrow glyphs aren't distorted.
+    """
     try:
         font = ImageFont.truetype(str(FONT_PATH), size=size_px)
     except Exception:
@@ -84,9 +89,23 @@ def render_glyph_b64(insert: str, size_px: int = GLYPH_RENDER_PX, thumb_px: int 
     h = max(bbox[3] - bbox[1] + 8, 4)
     img = Image.new("RGB", (w, h), (255, 255, 255))
     ImageDraw.Draw(img).text((-bbox[0] + 4, -bbox[1] + 4), insert, font=font, fill=(0, 0, 0))
-    img = img.resize((thumb_px, thumb_px), Image.LANCZOS)
+
+    # Trim to ink, then scale (aspect-preserving) to fit a centered square.
+    bg = Image.new("RGB", img.size, (255, 255, 255))
+    ink = ImageChops.difference(img, bg).getbbox()
+    if ink:
+        img = img.crop(ink)
+    margin = max(2, thumb_px // 16)
+    fit = thumb_px - 2 * margin
+    gw, gh = img.size
+    side = max(gw, gh, 1)
+    new_w, new_h = max(1, round(gw * fit / side)), max(1, round(gh * fit / side))
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+    canvas = Image.new("RGB", (thumb_px, thumb_px), (255, 255, 255))
+    canvas.paste(img, ((thumb_px - new_w) // 2, (thumb_px - new_h) // 2))
+
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    canvas.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode()
 
 
