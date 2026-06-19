@@ -92,6 +92,58 @@ def test_canvas_classes_by_index() -> None:
     assert [b.cls for b in restored] == ["base_neume.Oligon", "rest.Kratima"]
 
 
+def test_key_asset_datauri_reads_gif(tmp_path) -> None:
+    from review_ui.review_io import key_asset_datauri, load_key_assets
+
+    (tmp_path / "key_assets" / "chromaticHard").mkdir(parents=True)
+    gif = tmp_path / "key_assets" / "chromaticHard" / "DhiKeyChromDure.gif"
+    gif.write_bytes(b"GIF89a\x01\x00\x01\x00\x00\x00\x00;")  # tiny valid-ish gif bytes
+    mapping = {"DhiKeyChromDure": "key_assets/chromaticHard/DhiKeyChromDure.gif",
+               "DhiKeyChrom": "key_assets/chromaticHard/DhiKeyChromDure.gif"}
+    (tmp_path / "key_assets.json").write_text(json.dumps(mapping), encoding="utf-8")
+
+    loaded = load_key_assets(tmp_path / "key_assets.json")
+    assert loaded == mapping
+    uri = key_asset_datauri("key_signature.DhiKeyChromDure", loaded, tmp_path)
+    assert uri is not None and uri.startswith("data:image/gif;base64,")
+    # The label-aliased class resolves to the same artwork.
+    assert key_asset_datauri("mode.DhiKeyChrom", loaded, tmp_path) == uri
+    # Unmapped class falls through to None (font fallback handles it elsewhere).
+    assert key_asset_datauri("base_neume.Oligon", loaded, tmp_path) is None
+    assert load_key_assets(tmp_path / "missing.json") == {}
+
+
+def test_count_class_instances(tmp_path) -> None:
+    from review_ui.review_io import count_class_instances, save_page_detections
+
+    save_page_detections(tmp_path, "book/page_0001.png",
+                         [Box("base_neume.Oligon", 0, 0, 9, 9), Box("base_neume.Oligon", 10, 0, 19, 9),
+                          Box("rest.Kratima", 20, 0, 29, 9)], CLASSES, 100, 100)
+    save_page_detections(tmp_path, "book/page_0002.png",
+                         [Box("base_neume.Oligon", 0, 0, 9, 9)], CLASSES, 100, 100)
+    counts, coverage, out_of_range = count_class_instances(tmp_path, CLASSES)
+    assert counts["base_neume.Oligon"] == 3 and coverage["base_neume.Oligon"] == 2
+    assert counts["rest.Kratima"] == 1 and coverage["rest.Kratima"] == 1
+    assert counts["key_signature.PaKey"] == 0  # present but unused
+    assert out_of_range == 0
+
+
+def test_canonical_class_name_merges_mode_and_aliases() -> None:
+    from psaltica_ocr.symbol_map import canonical_class_name, group_for_class_name
+
+    # Mode martyria fold into key signatures (same artwork).
+    assert canonical_class_name("mode.PaKeyChromDure") == "key_signature.PaKeyChromDure"
+    assert canonical_class_name("mode.DhiKeyChrom") == "key_signature.DhiKeyChromDure"  # via alias
+    # Same-GIF alias within key signatures.
+    assert canonical_class_name("key_signature.DhiKeyChrom") == "key_signature.DhiKeyChromDure"
+    # Untouched classes pass through.
+    assert canonical_class_name("base_neume.Oligon") == "base_neume.Oligon"
+    # Group inverse mapping.
+    assert group_for_class_name("base_neume.Oligon") == "neume"
+    assert group_for_class_name("key_signature.PaKey") == "key_signature"
+    assert group_for_class_name("modifier_gorgon.Gorgon") == "gorgon"
+
+
 def test_page_key_handles_spaces() -> None:
     assert page_key("data/pages_full/Holy Week/page_0110.png") == "Holy_Week_page_0110"
 

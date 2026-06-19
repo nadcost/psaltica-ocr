@@ -3,16 +3,18 @@
 Run with:
     uv run streamlit run review_ui/app.py
 
-v1 is correction-first and canvas-free: the page renders with its predicted
-boxes overlaid (a plain image, so there is no click-coordinate offset), and each
-box is corrected from a list — fix its class by sight (the Byzantine glyph is
-shown beside the crop) or delete a false positive. Missed glyphs are added with
-a small numeric form. Corrections save as YOLO so they feed detector retraining
-via the same dataset layout as tools/import_labels.py.
+The page renders inside a scrollable, zoomable drawing canvas
+(streamlit-drawable-canvas). You click-drag a rectangle straight onto a glyph to
+add a box; zooming scales the image itself and the pane scrolls both ways — there
+is no panning UI. Existing boxes are baked into the canvas background (numbered),
+and their class is set — or they're deleted — from the list below, where the
+Byzantine glyph is shown beside the crop. A freshly drawn box can auto-fill its
+class from glyphs you've already labelled this session. Corrections save as YOLO
+so they feed detector retraining via the same dataset layout as import_labels.py.
 
-(An earlier canvas-based draw/move/resize version was dropped: streamlit
--drawable-canvas mis-scales click coordinates inside Streamlit's iframe on
-HiDPI displays. Geometry maths still lives, tested, in review_ui/review_io.py.)
+The canvas only ever holds newly drawn rects: seeding it with its own boxes as
+fabric objects sent it into an infinite remount loop, so existing boxes live in
+the background image instead. Coordinate maths lives, tested, in review_io.py.
 """
 
 from __future__ import annotations
@@ -27,11 +29,34 @@ import streamlit as st
 
 from review_ui import review_io as rio
 
+
+def _patch_drawable_canvas() -> None:
+    """streamlit-drawable-canvas 0.9.3 calls the pre-1.50 ``image_to_url(image,
+    width, ...)``; Streamlit 1.57 relocated it to ``elements.lib.image_utils``
+    and replaced the int ``width`` with a ``LayoutConfig``. Re-expose a
+    width-compatible shim on the old path so the canvas background renders."""
+    import streamlit.elements.image as st_image
+
+    if hasattr(st_image, "image_to_url"):
+        return
+    from streamlit.elements.lib.image_utils import image_to_url as _new
+    from streamlit.elements.lib.layout_utils import LayoutConfig
+
+    def image_to_url(image, width, clamp, channels, output_format, image_id):  # noqa: ANN001
+        return _new(image, LayoutConfig(width=width), clamp, channels, output_format, image_id)
+
+    st_image.image_to_url = image_to_url
+
+
+_patch_drawable_canvas()
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PAGES_FILE = ROOT / "data/annotations/pages_50.txt"
 DEFAULT_PREDICTIONS = ROOT / "data/annotations/predictions_50.json"
 DEFAULT_CLASSES = ROOT / "config/classes.yaml"
 DEFAULT_SYMBOL_MAP = ROOT / "config/symbol_map.json"
+DEFAULT_KEY_ASSETS = ROOT / "config/key_assets.json"
+CONFIG_DIR = ROOT / "config"
 DEFAULT_CORRECTIONS = ROOT / "data/corrections"
 UNASSIGNED = "— pick class —"
 
@@ -54,7 +79,17 @@ def _predictions(path: str) -> dict[str, list[dict]]:
 
 
 @st.cache_data
+def _key_assets() -> dict[str, str]:
+    return rio.load_key_assets(DEFAULT_KEY_ASSETS)
+
+
+@st.cache_data
 def _glyph_uri(cls: str, symbol_map_path: str) -> str | None:
+    # Key signatures render as GIF artwork in the app; prefer that (the font
+    # glyph for their insert often differs). Fall back to the font otherwise.
+    asset = rio.key_asset_datauri(cls, _key_assets(), str(CONFIG_DIR))
+    if asset:
+        return asset
     return rio.class_glyph_datauri(cls, _icon_inserts(symbol_map_path))
 
 
@@ -104,30 +139,63 @@ def _hex_to_bgr(color: str) -> tuple[int, int, int]:
     return (b, g, r)
 
 
-def _region_overlay(image_gray: np.ndarray, boxes: list[rio.Box], x: int, y: int, w: int, h: int) -> np.ndarray:
-    """Boxes drawn on the page, then cropped to the (x,y,w,h) viewport — feeding a
-    small region to the cropper makes it fit-to-container = zoomed in, and moving
-    the region is the pan. Box coords come back in region pixels."""
-    canvas = cv2.cvtColor(image_gray, cv2.COLOR_GRAY2BGR)
+def _background(image_gray: np.ndarray, boxes: list[rio.Box], disp_w: int, disp_h: int,
+                scale: float, highlight: set[int]):
+    """The zoomed page with existing boxes baked in, as an RGB PIL image.
+
+    Boxes are drawn into the background (not handed to the canvas as fabric
+    objects) so the canvas only ever holds freshly drawn rects — feeding its own
+    output back as ``initial_drawing`` is what sent it into an infinite remount
+    loop. Numbers tie each box back to its row in the correction list below.
+    """
+    from PIL import Image
+
+    canvas = cv2.resize(cv2.cvtColor(image_gray, cv2.COLOR_GRAY2BGR), (disp_w, disp_h))
     for i, box in enumerate(boxes):
         color = _hex_to_bgr(box.color())
-        cv2.rectangle(canvas, (int(box.x1), int(box.y1)), (int(box.x2), int(box.y2)), color, 2)
-        cv2.putText(canvas, str(i), (int(box.x1), max(12, int(box.y1) - 4)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-    return cv2.cvtColor(canvas[y: y + h, x: x + w], cv2.COLOR_BGR2RGB)
+        p1 = (int(box.x1 * scale), int(box.y1 * scale))
+        p2 = (int(box.x2 * scale), int(box.y2 * scale))
+        cv2.rectangle(canvas, p1, p2, color, 3 if i in highlight else 2)
+        cv2.putText(canvas, str(i), (p1[0], max(12, p1[1] - 3)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+    return Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
 
 
-def _overlay(image_gray: np.ndarray, boxes: list[rio.Box], highlight: set[int], display_width: int) -> np.ndarray:
-    canvas = cv2.cvtColor(image_gray, cv2.COLOR_GRAY2BGR)
-    for i, box in enumerate(boxes):
-        color = _hex_to_bgr(box.color())
-        thickness = 5 if i in highlight else 2
-        cv2.rectangle(canvas, (int(box.x1), int(box.y1)), (int(box.x2), int(box.y2)), color, thickness)
-        cv2.putText(canvas, str(i), (int(box.x1), max(12, int(box.y1) - 4)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-    scale = display_width / canvas.shape[1]
-    resized = cv2.resize(canvas, (display_width, int(canvas.shape[0] * scale)))
-    return cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+def _preserve_scroll(container_class: str) -> None:
+    """Keep the scroll position of the canvas pane across reruns.
+
+    Adding a box no longer remounts the canvas, but zooming/page changes do, and a
+    rerun can still nudge the scrollable pane. This stores the pane's scroll offset
+    on the window and restores it, retrying briefly while content reflows, so you
+    keep your place when zoomed in.
+    """
+    st.html(
+        f"""
+        <script>
+        (function() {{
+            const cls = "{container_class}";
+            const win = window.parent || window, doc = win.document;
+            win.__canvasScroll = win.__canvasScroll || {{x: 0, y: 0}};
+            const getEl = () => doc.getElementsByClassName(cls)[0];
+            function restore(tries) {{
+                const el = getEl();
+                if (!el) {{ if (tries > 0) setTimeout(() => restore(tries - 1), 50); return; }}
+                if (!el.__scrollBound) {{
+                    el.__scrollBound = true;
+                    el.addEventListener("scroll", () => {{
+                        win.__canvasScroll = {{x: el.scrollLeft, y: el.scrollTop}};
+                    }});
+                }}
+                el.scrollLeft = win.__canvasScroll.x;
+                el.scrollTop = win.__canvasScroll.y;
+                if (tries > 0) setTimeout(() => restore(tries - 1), 50);  // outlast reflow
+            }}
+            restore(24);
+        }})();
+        </script>
+        """,
+        unsafe_allow_javascript=True,
+    )
 
 
 def main() -> None:
@@ -144,9 +212,10 @@ def main() -> None:
     with st.sidebar:
         st.header("Page")
         image_path = st.selectbox("Page", pages, format_func=rio.page_key)
-        display_width = st.slider("🔍 Zoom — page width (px)", 600, 3200, 1100, 100,
-                                  help="Increase to zoom in: the page (and the draw box) render larger and "
-                                       "the page scrolls, so you can place boxes precisely.")
+        zoom = st.slider("🔍 Zoom", 0.25, 3.0, 1.0, 0.25,
+                         help="Zooms the image itself. The view scrolls — drag inside it to draw.")
+        viewport_h = st.slider("Viewport height (px)", 400, 1200, 750, 50,
+                               help="Height of the scrollable image pane.")
         group_filter = st.selectbox("Class group filter", ["(all)"] + sorted(rio.GROUP_COLORS))
         per_view = st.slider("Boxes per panel page", 10, 60, 20, 5)
         saved = sorted(p.name for p in DEFAULT_CORRECTIONS.glob("*") if (p / "detections.yolo").exists())
@@ -175,10 +244,19 @@ def main() -> None:
         return ""
 
     undo_key, redo_key = f"undo::{page}", f"redo::{page}"
+    clear_key = f"clearver::{page}"
+    st.session_state.setdefault(clear_key, 0)
 
     def snapshot() -> None:
         st.session_state.setdefault(undo_key, []).append(copy.deepcopy(boxes))
         st.session_state[redo_key] = []
+
+    def clear_canvas() -> None:
+        # Wipe any drawn rect by bumping the canvas's initial_drawing version.
+        # This keeps the SAME canvas key, so the iframe is NOT remounted — the
+        # page doesn't flash or lose its scroll position; only the background
+        # image (with the committed boxes baked in) updates in place.
+        st.session_state[clear_key] += 1
 
     with st.sidebar:
         st.divider()
@@ -187,24 +265,34 @@ def main() -> None:
                      help="Template-match boxes — they over-detect, so from-scratch is often easier."):
             snapshot()
             st.session_state[box_key] = _prediction_boxes(image_path, width, height, preds)
+            clear_canvas()
             st.rerun()
         u, r = st.columns(2)
         if u.button("↩️ Undo", disabled=not st.session_state.get(undo_key)):
             st.session_state.setdefault(redo_key, []).append(copy.deepcopy(boxes))
             st.session_state[box_key] = st.session_state[undo_key].pop()
+            clear_canvas()
             st.rerun()
         if r.button("↪️ Redo", disabled=not st.session_state.get(redo_key)):
             st.session_state.setdefault(undo_key, []).append(copy.deepcopy(boxes))
             st.session_state[box_key] = st.session_state[redo_key].pop()
+            clear_canvas()
             st.rerun()
         if st.button("Clear all boxes on this page"):
             snapshot()
             st.session_state[box_key] = []
+            clear_canvas()
             st.rerun()
 
-    indices = [i for i in range(len(boxes)) if group_filter == "(all)" or boxes[i].group == group_filter]
+    # Panel pages are derived from the box count — they grow/shrink automatically
+    # as you add or delete. The current page is kept in session (not a widget) so
+    # the ◀/▶ selector below the list drives it. Newest box first (reversed), so a
+    # freshly drawn box lands at the top of page 1 where you can check it.
+    indices = [i for i in range(len(boxes)) if group_filter == "(all)" or boxes[i].group == group_filter][::-1]
     total_views = max(1, (len(indices) + per_view - 1) // per_view)
-    view = st.sidebar.number_input("Panel page", 1, total_views, 1) - 1
+    view_key = f"view::{page}"
+    view = min(st.session_state.setdefault(view_key, 0), total_views - 1)
+    st.session_state[view_key] = view
     view_indices = indices[view * per_view : (view + 1) * per_view]
 
     # Apply a pending re-guess BEFORE any class selectbox is created (Streamlit
@@ -219,48 +307,94 @@ def main() -> None:
                     st.session_state[f"cls::{b.uid}"] = guess
                 break
 
-    c_draw, c_guess = st.columns(2)
-    draw_mode = c_draw.checkbox("✏️ Draw mode — zoom/pan, then drag a box")
-    auto_guess = c_guess.checkbox("🔮 Auto-guess from your labels", value=True,
-                                  help="A drawn box is matched against glyphs you've already labelled this "
-                                       "session; it auto-fills only on a confident match, else stays "
-                                       "unassigned. Label the first of each glyph and the repeats fill in.")
+    auto_guess = st.checkbox("🔮 Auto-guess drawn boxes from your labels", value=True,
+                             help="A drawn box is matched against glyphs you've already labelled this "
+                                  "session; it auto-fills only on a confident match, else stays "
+                                  "unassigned. Label the first of each glyph and the repeats fill in.")
     if exemplars:
         st.caption(f"learning from {len(exemplars)} labelled examples across "
                    f"{len({c for c, _ in exemplars})} glyph classes")
 
-    if draw_mode:
-        from PIL import Image
-        from streamlit_cropper import st_cropper
+    from streamlit_drawable_canvas import st_canvas
 
-        z1, z2, z3 = st.columns(3)
-        zoom = z1.slider("🔍 Zoom", 1.0, 8.0, 3.0, 0.5)
-        vw, vh = min(width, max(60, int(width / zoom))), min(height, max(60, int(height / zoom)))
-        pan_x = z2.slider("Pan →", 0, width - vw, 0, max(1, (width - vw) // 30)) if width - vw > 0 else 0
-        pan_y = z3.slider("Pan ↓", 0, height - vh, 0, max(1, (height - vh) // 30)) if height - vh > 0 else 0
+    disp_w, disp_h = max(1, int(width * zoom)), max(1, int(height * zoom))
+    scale = disp_w / width  # canvas pixels per image pixel (~zoom, exact after rounding)
+    st.caption("Click-drag on the image to add a box · the pane scrolls both ways · zoom with the sidebar slider. "
+               "Existing boxes are numbered — edit their class or delete them in the list below.")
 
-        region = _region_overlay(image, boxes, pan_x, pan_y, vw, vh)
-        st.caption("Zoom/pan with the sliders, drag the green box over a glyph, then ➕ Add.")
-        # Include the viewport in the key so the cropper re-mounts when you
-        # zoom/pan (it ignores image changes under a fixed key).
-        box = st_cropper(Image.fromarray(region), realtime_update=True, box_color="#00cc00",
-                         return_type="box", should_resize_image=False,
-                         key=f"crop::{page}::{zoom}::{pan_x}::{pan_y}",
-                         default_coords=(10, 50, 10, 50))
-        if st.button("➕ Add this box", type="primary"):
-            x1b, y1b = pan_x + max(0, box["left"]), pan_y + max(0, box["top"])
-            x2b, y2b = min(width, x1b + box["width"]), min(height, y1b + box["height"])
-            if x2b > x1b and y2b > y1b:
-                cls = guess_cls(image[int(y1b):int(y2b), int(x1b):int(x2b)]) if auto_guess else ""
-                snapshot()
-                boxes.append(rio.Box(cls, x1b, y1b, x2b, y2b, source="added"))
-                st.rerun()
-    else:
-        st.image(_overlay(image, boxes, set(view_indices), display_width), width=display_width,
-                 caption=f"{page} — {len(boxes)} boxes (current panel page highlighted)")
+    # The height-limited container scrolls vertically but clips horizontally, and
+    # the component iframe is otherwise sized to the column width (clipping a
+    # zoomed-in canvas). Let both scroll horizontally to the canvas width.
+    st.markdown(
+        f"<style>"
+        f".st-key-canvasscroll {{ overflow: auto !important; }}"
+        f".st-key-canvasscroll iframe {{ width: {disp_w}px !important; max-width: none !important; }}"
+        f"</style>",
+        unsafe_allow_html=True,
+    )
+    with st.container(height=viewport_h, border=True, key="canvasscroll"):
+        # The canvas only ever holds NEW rects: existing boxes are baked into the
+        # background, never seeded as fabric objects (that loops). The key is
+        # STABLE across adds (only page/zoom change it) so the iframe isn't
+        # remounted — instead a drawn rect is cleared by bumping initial_drawing's
+        # version, which the component reloads in place without flashing/scrolling.
+        canvas = st_canvas(
+            fill_color="rgba(0, 0, 0, 0)",
+            stroke_width=2,
+            stroke_color="#00cc00",
+            background_image=_background(image, boxes, disp_w, disp_h, scale, set(view_indices)),
+            update_streamlit=True,
+            height=disp_h,
+            width=disp_w,
+            drawing_mode="rect",
+            initial_drawing={"version": f"clear-{st.session_state[clear_key]}", "objects": []},
+            display_toolbar=True,
+            key=f"canvas::{page}::{disp_w}",
+        )
+    _preserve_scroll("st-key-canvasscroll")
 
-    st.markdown(f"**{len(boxes)} boxes** · classes assigned: {sum(1 for b in boxes if b.cls)} · "
-                f"showing #{view_indices[0] if view_indices else 0}–{view_indices[-1] if view_indices else 0}")
+    if canvas.json_data is not None:
+        # Any rect on the (otherwise empty) canvas is a new box; drop stray clicks.
+        drawn = [b for b in rio.canvas_objects_to_boxes(canvas.json_data.get("objects", []), scale)
+                 if b.width >= 3 and b.height >= 3]
+        # Guard: after committing, the canvas keeps emitting the same rect until it
+        # clears, so skip if we've already committed exactly this set.
+        sig = tuple(sorted((round(b.x1), round(b.y1), round(b.x2), round(b.y2)) for b in drawn))
+        if drawn and sig != st.session_state.get(f"commitsig::{page}"):
+            st.session_state[f"commitsig::{page}"] = sig
+            snapshot()
+            for nb in drawn:
+                cls = guess_cls(image[int(nb.y1):int(nb.y2), int(nb.x1):int(nb.x2)]) if auto_guess else ""
+                boxes.append(rio.Box(cls, nb.x1, nb.y1, nb.x2, nb.y2, source="added"))
+            clear_canvas()  # wipe the drawn rect; it is now baked into the background
+            st.session_state[view_key] = 0  # newest is first — show the top page
+            st.rerun()
+        elif not drawn:
+            # Canvas cleared; forget the guard so an identical next box still adds.
+            st.session_state[f"commitsig::{page}"] = None
+
+    st.markdown(f"**{len(boxes)} boxes** · classes assigned: {sum(1 for b in boxes if b.cls)}")
+
+    # Panel-page navigation: ◀/▶ step, a dropdown to jump anywhere, and a live
+    # position readout. Pages are created/removed automatically with the boxes.
+    nav_prev, nav_sel, nav_next = st.columns([1, 3, 1])
+    if nav_prev.button("◀ Prev", disabled=view == 0, use_container_width=True):
+        st.session_state[view_key] = view - 1
+        st.rerun()
+    def _page_label(v: int) -> str:
+        chunk = indices[v * per_view : (v + 1) * per_view]
+        return (f"Page {v + 1} of {total_views}  ·  boxes #{min(chunk)}–#{max(chunk)}"
+                if chunk else f"Page {v + 1} of {total_views}")
+
+    page_labels = [_page_label(v) for v in range(total_views)]
+    chosen = nav_sel.selectbox("Panel page", page_labels, index=view, label_visibility="collapsed",
+                               key=f"panelsel::{page}::{view}::{total_views}")
+    if (sel := page_labels.index(chosen)) != view:
+        st.session_state[view_key] = sel
+        st.rerun()
+    if nav_next.button("Next ▶", disabled=view >= total_views - 1, use_container_width=True):
+        st.session_state[view_key] = view + 1
+        st.rerun()
 
     for i in view_indices:
         box = boxes[i]
@@ -282,6 +416,7 @@ def main() -> None:
         if cols[4].button("🗑", key=f"del::{box.uid}", help="Delete this box"):
             snapshot()
             boxes.pop(i)
+            clear_canvas()
             st.rerun()
 
     c1, c2 = st.columns(2)

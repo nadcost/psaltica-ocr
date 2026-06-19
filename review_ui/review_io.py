@@ -30,7 +30,6 @@ GROUP_COLORS: dict[str, str] = {
     "modifier_modulation": "#2ca02c",
     "key_signature": "#ff7f0e",
     "rest": "#8c564b",
-    "mode": "#e377c2",
     "lyrics": "#17becf",
 }
 DEFAULT_COLOR = "#555555"
@@ -169,6 +168,33 @@ def class_glyph_datauri(cls: str, icon_inserts: dict[str, str]) -> str | None:
 
     b64 = render_glyph_b64(insert)
     return f"data:image/png;base64,{b64}" if b64 else None
+
+
+def load_key_assets(path: str | Path) -> dict[str, str]:
+    """Map key name (icon or label) -> repo-relative GIF path (or {} if absent)."""
+    p = Path(path)
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def key_asset_datauri(cls: str, key_assets: dict[str, str], assets_root: str | Path) -> str | None:
+    """Data: URI of the app's GIF artwork for a key signature, else None.
+
+    Key signatures (and mode martyria) render as GIFs in the app, not font
+    glyphs, so this returns the real artwork when the class name matches; the
+    font renderer is the fallback for everything else.
+    """
+    if "." not in cls:
+        return None
+    rel = key_assets.get(cls.split(".", 1)[1])
+    if not rel:
+        return None
+    path = Path(assets_root) / rel
+    if not path.exists():
+        return None
+    import base64
+
+    b64 = base64.b64encode(path.read_bytes()).decode()
+    return f"data:image/gif;base64,{b64}"
 
 
 # --------------------------------------------------------------------------- #
@@ -317,6 +343,36 @@ def load_page_detections(
     if not label_path.exists():
         return None
     return yolo_lines_to_boxes(label_path.read_text(encoding="utf-8").splitlines(), class_names, width, height)
+
+
+def count_class_instances(
+    corrections_root: str | Path, class_names: list[str]
+) -> tuple[dict[str, int], dict[str, int], int]:
+    """Tally saved corrections per class for dataset-balance decisions.
+
+    Returns ``(counts, page_coverage, out_of_range)`` where ``counts[name]`` is
+    the number of boxes of that class across all saved pages, ``page_coverage``
+    is how many distinct pages each class appears on, and ``out_of_range`` is the
+    count of label indices that don't map to a class (stale labels). Every class
+    is present in the dicts, including those with zero instances.
+    """
+    counts = {name: 0 for name in class_names}
+    pages: dict[str, set[str]] = {name: set() for name in class_names}
+    out_of_range = 0
+    for label_path in Path(corrections_root).glob("*/detections.yolo"):
+        page = label_path.parent.name
+        for line in label_path.read_text(encoding="utf-8").splitlines():
+            parts = line.split()
+            if len(parts) != 5:
+                continue
+            idx = int(parts[0])
+            if 0 <= idx < len(class_names):
+                name = class_names[idx]
+                counts[name] += 1
+                pages[name].add(page)
+            else:
+                out_of_range += 1
+    return counts, {name: len(seen) for name, seen in pages.items()}, out_of_range
 
 
 def write_dataset_yaml(output: Path, class_names: list[str]) -> None:
