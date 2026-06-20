@@ -98,6 +98,12 @@ def _glyph_descriptors(classes_path: str, symbol_map_path: str) -> dict:
     return rio.build_glyph_descriptors(_class_names(classes_path), _icon_inserts(symbol_map_path))
 
 
+@st.cache_data
+def _symbol_estimate(image_path: str) -> int:
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    return rio.estimate_symbol_count(img) if img is not None else 0
+
+
 def _session_exemplars(image, boxes, per_class: int = 6) -> list:
     """(class, descriptor) of crops you've labelled this session — across pages,
     capped per class. These match the real printed typeface, unlike font glyphs."""
@@ -378,7 +384,15 @@ def main() -> None:
             # Canvas cleared; forget the guard so an identical next box still adds.
             st.session_state[f"commitsig::{page}"] = None
 
-    st.markdown(f"**{len(boxes)} boxes** · classes assigned: {sum(1 for b in boxes if b.cls)}")
+    # Progress against the estimated number of symbols on the page (counted from
+    # the music rows), so the bar reflects real remaining work rather than the
+    # share of boxes drawn so far. The estimate is approximate, so a fully
+    # labelled page can read slightly under or over — clamp to 100% and never let
+    # it fall below what's already labelled.
+    assigned = sum(1 for b in boxes if b.cls)
+    expected = max(_symbol_estimate(image_path), assigned, 1)
+    pct = min(assigned / expected, 1.0)
+    st.progress(pct, text=f"~{pct * 100:.0f}% done · {assigned} labelled of ≈{expected} symbols")
 
     # Panel-page navigation: ◀/▶ step, a dropdown to jump anywhere, and a live
     # position readout. Pages are created/removed automatically with the boxes.

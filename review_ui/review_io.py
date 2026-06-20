@@ -198,6 +198,62 @@ def key_asset_datauri(cls: str, key_assets: dict[str, str], assets_root: str | P
 
 
 # --------------------------------------------------------------------------- #
+# Page completion estimate
+# --------------------------------------------------------------------------- #
+
+# Printed neume ligatures fuse adjacent clusters, so one horizontal ink column
+# spans ~1.6 glyph clusters on average. Calibrated on six fully-labelled pages
+# (120–317 clusters); column/cluster held at 0.58–0.66 across that range, so the
+# scaled estimate lands within ~±8% of the true cluster count.
+SYMBOLS_PER_COLUMN = 1.63
+
+
+def _ink_column_count(ink_mask: np.ndarray, *, min_gap: int = 4, min_width: int = 2) -> int:
+    """Number of horizontal ink columns in a row mask.
+
+    Clusters stack their modifiers vertically at one x-position, so columns of
+    ink track clusters far better than raw connected components do. Runs of ink
+    columns closer than ``min_gap`` are one column; runs thinner than
+    ``min_width`` (stray specks) are dropped.
+    """
+    present = ink_mask.any(axis=0)
+    runs: list[list[int]] = []
+    x, n = 0, len(present)
+    while x < n:
+        if present[x]:
+            start = x
+            while x < n and present[x]:
+                x += 1
+            if runs and start - runs[-1][1] < min_gap:
+                runs[-1][1] = x
+            else:
+                runs.append([start, x])
+        else:
+            x += 1
+    return sum(1 for a, b in runs if b - a >= min_width)
+
+
+def estimate_symbol_count(image_gray: np.ndarray) -> int:
+    """Rough count of glyph clusters in a page's music (chant) rows.
+
+    Used to give the review progress bar a real denominator (expected symbols on
+    the page) instead of a moving one (boxes drawn so far). It is an estimate for
+    a gauge, not a detector: it counts horizontal ink columns inside each chant
+    row and scales by ``SYMBOLS_PER_COLUMN``.
+    """
+    from psaltica_ocr.layout_segmentation import segment_page_layout
+    from psaltica_ocr.rendering import binarize
+
+    binary = binarize(image_gray)  # ink = 255
+    layout = segment_page_layout(image_gray)
+    columns = 0
+    for row in layout.chant_rows:
+        b = row.bbox
+        columns += _ink_column_count(binary[b.y1:b.y2, b.x1:b.x2] > 0)
+    return round(columns * SYMBOLS_PER_COLUMN)
+
+
+# --------------------------------------------------------------------------- #
 # Label Studio predictions -> pixel boxes
 # --------------------------------------------------------------------------- #
 
