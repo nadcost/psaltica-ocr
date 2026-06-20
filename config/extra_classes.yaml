@@ -1,0 +1,21 @@
+# Detection-only placeholder classes.
+#
+# These are symbols that appear in printed scores but have NO Psaltica Praxis
+# icon or insert string yet (e.g. tempo-change marks that tell the chanter to
+# speed up / slow down). We still want the detector to LEARN them now, so they
+# get a real class and get boxed during annotation — but they carry no insert
+# string, so:
+#   * they never appear in config/symbol_map.json (it is generated from the app),
+#   * the OCR export must skip them — see symbol_map.is_placeholder_class().
+#
+# These names are merged into config/classes.yaml by tools/sync_symbol_map.py and
+# survive regeneration, so re-syncing the taxonomy from the app will not drop
+# them. Every name here must use the "unsupported." prefix.
+#
+# When the app gains real support for one of these symbols: add it to
+# psaltica-praxis, re-run sync_symbol_map.py (it now appears as a real class),
+# remove it from this file, and remap its YOLO class id in existing labels to
+# the new real class. The boxes you drew under the placeholder carry straight
+# over — no re-annotation needed.
+classes:
+  - unsupported.TempoChange

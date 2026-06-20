@@ -92,6 +92,22 @@ _PREFIX_TO_GROUP = {
 }
 
 
+# Detection-only placeholder classes (config/extra_classes.yaml) carry this group
+# prefix. They have no app icon or insert string, so anything that turns classes
+# into Psaltica insert strings (export, cluster assembly) must skip them.
+PLACEHOLDER_GROUP = "unsupported"
+
+
+def is_placeholder_class(name: str) -> bool:
+    """True for a detection-only class that has no Psaltica insert string.
+
+    These are symbols the detector should find but the app cannot yet render
+    (e.g. tempo-change marks); the OCR export skips them rather than emitting an
+    invalid insert string. See config/extra_classes.yaml.
+    """
+    return name.split(".", 1)[0] == PLACEHOLDER_GROUP
+
+
 def canonical_class_name(name: str) -> str:
     """Fold ``mode.X`` into ``key_signature.X`` and apply same-glyph aliases."""
     if name.startswith("mode."):

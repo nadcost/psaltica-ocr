@@ -14,9 +14,11 @@ from typing import Any
 import yaml
 
 from psaltica_ocr.symbol_map import (
+    PLACEHOLDER_GROUP,
     SymbolMap,
     canonical_class_name,
     group_for_class_name,
+    is_placeholder_class,
     load_symbol_map,
 )
 
@@ -25,6 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PRAXIS_ROOT = Path("/Users/nadcost/psaltica-praxis")
 DEFAULT_SYMBOL_MAP = REPO_ROOT / "config" / "symbol_map.json"
 DEFAULT_CLASSES = REPO_ROOT / "config" / "classes.yaml"
+DEFAULT_EXTRA_CLASSES = REPO_ROOT / "config" / "extra_classes.yaml"
 EXTRACTOR = REPO_ROOT / "tools" / "_extract_symbol_map.ts"
 
 
@@ -33,8 +36,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--praxis-root", type=Path, default=DEFAULT_PRAXIS_ROOT)
     parser.add_argument("--symbol-map", type=Path, default=DEFAULT_SYMBOL_MAP)
     parser.add_argument("--classes", type=Path, default=DEFAULT_CLASSES)
+    parser.add_argument("--extra-classes", type=Path, default=DEFAULT_EXTRA_CLASSES)
     parser.add_argument("--check", action="store_true", help="Fail if generated artifacts differ")
     return parser.parse_args()
+
+
+def load_extra_classes(path: Path) -> list[str]:
+    """Detection-only placeholder class names merged into classes.yaml.
+
+    These have no app glyph (see config/extra_classes.yaml); appending them here
+    is what lets them survive a taxonomy re-sync instead of being regenerated
+    away. Every name must use the placeholder prefix so export can skip them.
+    """
+    if not path.exists():
+        return []
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    names = payload.get("classes", [])
+    for name in names:
+        if not is_placeholder_class(name):
+            raise SystemExit(
+                f"{path}: '{name}' must use the '{PLACEHOLDER_GROUP}.' prefix"
+            )
+    return names
 
 
 def run_extractor(praxis_root: Path, output: Path) -> None:
@@ -55,7 +78,7 @@ def class_name(symbol: dict[str, Any]) -> str:
     return f"{group}.{icon}"
 
 
-def build_classes(symbol_map: SymbolMap) -> dict[str, Any]:
+def build_classes(symbol_map: SymbolMap, extra_classes: list[str] | None = None) -> dict[str, Any]:
     names: list[str] = []
     groups: dict[str, list[str]] = {}
     raw = symbol_map.model_dump(by_alias=True)
@@ -67,6 +90,14 @@ def build_classes(symbol_map: SymbolMap) -> dict[str, Any]:
             continue
         names.append(name)
         groups.setdefault(group_for_class_name(name), []).append(name)
+
+    # Detection-only placeholders are appended after the app-derived classes so a
+    # re-sync keeps them (and their YOLO class ids) stable instead of dropping
+    # them — see load_extra_classes / config/extra_classes.yaml.
+    for name in extra_classes or []:
+        if name not in names:
+            names.append(name)
+            groups.setdefault(group_for_class_name(name), []).append(name)
 
     return {
         "path": "../data/datasets",
@@ -108,13 +139,15 @@ def main() -> None:
     if not args.praxis_root.exists():
         raise SystemExit(f"Praxis root not found: {args.praxis_root}")
 
+    extra_classes = load_extra_classes(args.extra_classes)
+
     if args.check:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_symbol_map = Path(temp_dir) / "symbol_map.json"
             temp_classes = Path(temp_dir) / "classes.yaml"
             run_extractor(args.praxis_root, temp_symbol_map)
             generated_map = load_symbol_map(temp_symbol_map)
-            write_yaml(temp_classes, build_classes(generated_map))
+            write_yaml(temp_classes, build_classes(generated_map, extra_classes))
             check_artifact(args.symbol_map, temp_symbol_map.read_text(encoding="utf-8"))
             check_artifact(args.classes, temp_classes.read_text(encoding="utf-8"))
         return
@@ -122,7 +155,7 @@ def main() -> None:
     args.symbol_map.parent.mkdir(parents=True, exist_ok=True)
     run_extractor(args.praxis_root, args.symbol_map)
     generated_map = load_symbol_map(args.symbol_map)
-    write_yaml(args.classes, build_classes(generated_map))
+    write_yaml(args.classes, build_classes(generated_map, extra_classes))
 
 
 if __name__ == "__main__":

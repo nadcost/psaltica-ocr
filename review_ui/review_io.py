@@ -31,6 +31,7 @@ GROUP_COLORS: dict[str, str] = {
     "key_signature": "#ff7f0e",
     "rest": "#8c564b",
     "lyrics": "#17becf",
+    "unsupported": "#e377c2",  # detection-only placeholder (no app insert string)
 }
 DEFAULT_COLOR = "#555555"
 

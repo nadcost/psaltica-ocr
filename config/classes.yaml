@@ -171,6 +171,7 @@ names:
 - key_signature.ZoKeyChromDouxSup
 - key_signature.ZoKeyChromDure(Sup)
 - key_signature.ZoKeyDiatOctave
+- unsupported.TempoChange
 groups:
   key_signature:
   - key_signature.PaKey
@@ -346,6 +347,8 @@ groups:
   - modifier_isson.Zo
   - modifier_isson.Ni
   - modifier_isson.Melo
+  unsupported:
+  - unsupported.TempoChange
 source_meta:
   generatedBy: tools/_extract_symbol_map.ts
   praxisRoot: /Users/nadcost/psaltica-praxis
