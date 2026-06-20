@@ -158,6 +158,27 @@ def guess_class(
     return best_cls, best_score
 
 
+def class_scores(
+    crop_gray: np.ndarray,
+    candidates: "Iterable[tuple[str, np.ndarray]]",
+    size: int = GLYPH_DESC_SIZE,
+) -> dict[str, float]:
+    """Best correlation per class over (class, descriptor) candidates.
+
+    Works for both exemplars (a list) and font glyphs (pass ``descriptors.items()``),
+    so the caller can rank every class on one comparable scale and tell a
+    confident match from a near-tie between look-alike glyphs."""
+    if crop_gray is None or crop_gray.size == 0:
+        return {}
+    crop_desc = _descriptor(crop_gray, size)
+    scores: dict[str, float] = {}
+    for cls, desc in candidates:
+        score = float(cv2.matchTemplate(crop_desc, desc, cv2.TM_CCOEFF_NORMED)[0, 0])
+        if score > scores.get(cls, -2.0):
+            scores[cls] = score
+    return scores
+
+
 def class_glyph_datauri(cls: str, icon_inserts: dict[str, str]) -> str | None:
     """Return a data: URI PNG of the class glyph, or None if unrenderable."""
     if "." not in cls:

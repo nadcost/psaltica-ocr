@@ -59,6 +59,10 @@ DEFAULT_KEY_ASSETS = ROOT / "config/key_assets.json"
 CONFIG_DIR = ROOT / "config"
 DEFAULT_CORRECTIONS = ROOT / "data/corrections"
 UNASSIGNED = "— pick class —"
+# Auto-guess abstains when the top two classes are within this correlation
+# margin — too close to call between look-alike glyphs, so leave it blank
+# rather than guess wrong.
+GUESS_MARGIN = 0.10
 
 
 @st.cache_data
@@ -250,18 +254,28 @@ def main() -> None:
 
     def guess_cls(crop, exclude_uid=None) -> str:
         # Score the crop against what you've labelled this session (real
-        # typeface) AND against the font glyphs, then take the better match.
-        # The font glyphs cover every class; without them an unlabelled class is
-        # forced onto its nearest labelled neighbour — e.g. an Eteron with no
-        # Eteron exemplar yet always lands on Antikenoma. Both descriptors share
-        # the same space and metric, so their scores are directly comparable.
+        # typeface) AND against the font glyphs (which cover every class), keep
+        # the best score per class on one comparable scale, then take the top.
         # Re-guessing an existing box drops it from the exemplars so it can't
         # match its own (possibly wrong) label at ~1.0 and stay stuck there.
+        #
+        # Abstain when the top two *different* classes are within
+        # GUESS_MARGIN of each other: look-alike pairs (Antikenoma/Eteron,
+        # Diesis/HalfDiesis) are a near-tie until you've labelled an example of
+        # the right one, and a confident wrong guess is worse than a blank — it
+        # silently corrupts the data and poisons later guesses. Once you label
+        # the first of a glyph, its exemplar wins outright and repeats fill in.
         exs = _session_exemplars(image, boxes, exclude_uid=exclude_uid) if exclude_uid else exemplars
-        ec, es = rio.guess_from_exemplars(crop, exs)
-        gc, gs = rio.guess_class(crop, glyph_descriptors)
-        cls, score = (gc, gs) if gs > es else (ec, es)
-        return cls if cls and score >= 0.40 else ""
+        scores = rio.class_scores(crop, exs)
+        for cls, sc in rio.class_scores(crop, glyph_descriptors.items()).items():
+            if sc > scores.get(cls, -2.0):
+                scores[cls] = sc
+        ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+        if not ranked or ranked[0][1] < 0.40:
+            return ""
+        if len(ranked) > 1 and ranked[0][1] - ranked[1][1] < GUESS_MARGIN:
+            return ""
+        return ranked[0][0]
 
     undo_key, redo_key = f"undo::{page}", f"redo::{page}"
     clear_key = f"clearver::{page}"
