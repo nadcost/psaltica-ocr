@@ -234,14 +234,19 @@ def main() -> None:
     boxes: list[rio.Box] = st.session_state[box_key]
 
     exemplars = _session_exemplars(image, boxes)
+    glyph_descriptors = _glyph_descriptors(str(DEFAULT_CLASSES), str(DEFAULT_SYMBOL_MAP))
 
     def guess_cls(crop) -> str:
-        # Prefer what you've already labelled (real typeface); fall back to the
-        # font glyph only weakly. Below the confidence gate, leave unassigned.
-        cls, score = rio.guess_from_exemplars(crop, exemplars)
-        if cls and score >= 0.40:
-            return cls
-        return ""
+        # Score the crop against what you've labelled this session (real
+        # typeface) AND against the font glyphs, then take the better match.
+        # The font glyphs cover every class; without them an unlabelled class is
+        # forced onto its nearest labelled neighbour — e.g. an Eteron with no
+        # Eteron exemplar yet always lands on Antikenoma. Both descriptors share
+        # the same space and metric, so their scores are directly comparable.
+        ec, es = rio.guess_from_exemplars(crop, exemplars)
+        gc, gs = rio.guess_class(crop, glyph_descriptors)
+        cls, score = (gc, gs) if gs > es else (ec, es)
+        return cls if cls and score >= 0.40 else ""
 
     undo_key, redo_key = f"undo::{page}", f"redo::{page}"
     clear_key = f"clearver::{page}"
