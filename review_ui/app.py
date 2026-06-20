@@ -104,9 +104,13 @@ def _symbol_estimate(image_path: str) -> int:
     return rio.estimate_symbol_count(img) if img is not None else 0
 
 
-def _session_exemplars(image, boxes, per_class: int = 6) -> list:
+def _session_exemplars(image, boxes, per_class: int = 6, exclude_uid=None) -> list:
     """(class, descriptor) of crops you've labelled this session — across pages,
-    capped per class. These match the real printed typeface, unlike font glyphs."""
+    capped per class. These match the real printed typeface, unlike font glyphs.
+
+    ``exclude_uid`` drops one box from the set: when re-guessing an existing box,
+    its own crop is cached under its current (possibly wrong) class and would
+    match itself at ~1.0, pinning the guess to that label forever."""
     cache = st.session_state.setdefault("exemplar_desc", {})
     for box in boxes:
         if box.cls:
@@ -116,7 +120,9 @@ def _session_exemplars(image, boxes, per_class: int = 6) -> list:
                 if crop.size:
                     cache[key] = rio.crop_descriptor(crop)
     by_class: dict[str, list] = {}
-    for (_uid, cls), desc in cache.items():
+    for (uid, cls), desc in cache.items():
+        if uid == exclude_uid:
+            continue
         by_class.setdefault(cls, []).append(desc)
     return [(cls, desc) for cls, descs in by_class.items() for desc in descs[-per_class:]]
 
@@ -242,14 +248,17 @@ def main() -> None:
     exemplars = _session_exemplars(image, boxes)
     glyph_descriptors = _glyph_descriptors(str(DEFAULT_CLASSES), str(DEFAULT_SYMBOL_MAP))
 
-    def guess_cls(crop) -> str:
+    def guess_cls(crop, exclude_uid=None) -> str:
         # Score the crop against what you've labelled this session (real
         # typeface) AND against the font glyphs, then take the better match.
         # The font glyphs cover every class; without them an unlabelled class is
         # forced onto its nearest labelled neighbour — e.g. an Eteron with no
         # Eteron exemplar yet always lands on Antikenoma. Both descriptors share
         # the same space and metric, so their scores are directly comparable.
-        ec, es = rio.guess_from_exemplars(crop, exemplars)
+        # Re-guessing an existing box drops it from the exemplars so it can't
+        # match its own (possibly wrong) label at ~1.0 and stay stuck there.
+        exs = _session_exemplars(image, boxes, exclude_uid=exclude_uid) if exclude_uid else exemplars
+        ec, es = rio.guess_from_exemplars(crop, exs)
         gc, gs = rio.guess_class(crop, glyph_descriptors)
         cls, score = (gc, gs) if gs > es else (ec, es)
         return cls if cls and score >= 0.40 else ""
@@ -312,7 +321,7 @@ def main() -> None:
     if pending_uid:
         for b in boxes:
             if b.uid == pending_uid:
-                guess = guess_cls(image[int(b.y1):int(b.y2), int(b.x1):int(b.x2)])
+                guess = guess_cls(image[int(b.y1):int(b.y2), int(b.x1):int(b.x2)], exclude_uid=b.uid)
                 if guess:
                     b.cls = guess
                     st.session_state[f"cls::{b.uid}"] = guess
