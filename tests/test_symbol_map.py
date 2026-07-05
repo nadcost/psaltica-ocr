@@ -19,7 +19,9 @@ def test_meta_counts_match_generated_content() -> None:
     toolbar_backed = [symbol for symbol in symbol_map.symbols if symbol.key_id is None]
     raw_key_signatures = [symbol for symbol in symbol_map.symbols if symbol.group == "key_signature"]
 
-    assert len(toolbar_backed) == sum(symbol_map.meta.toolbar_counts.values())
+    assert len(toolbar_backed) == sum(symbol_map.meta.toolbar_counts.values()) + len(
+        symbol_map.meta.manual_injection_icons
+    )
     assert len(raw_key_signatures) == symbol_map.meta.key_signature_count
     assert len(symbol_map.meta.action_icons) == symbol_map.meta.action_char_map_count
 

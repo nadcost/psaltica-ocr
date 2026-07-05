@@ -202,6 +202,7 @@ const main = async () => {
   const keySignatures = await import(moduleUrl(praxisRoot, "app/core/keySignatures.ts"));
   const actionMap = await import(moduleUrl(praxisRoot, "app/core/music/actionMap.ts"));
   const clusterCatalog = await import(moduleUrl(praxisRoot, "app/core/notation/clusterCatalog.ts"));
+  const silenceModifiers = await import(moduleUrl(praxisRoot, "app/core/music/silenceModifiers.ts"));
 
   const actionByIcon = new Map<string, ActionCharInfo>(
     (actionMap.ACTION_CHAR_MAP as ActionCharInfo[]).map((entry) => [entry.icon, entry]),
@@ -243,6 +244,36 @@ const main = async () => {
   }
   symbols.push(...rawKeySignatures.map((entry) => makeKeySignatureEntry(entry, actionByIcon)));
 
+  // Symbols with no toolbar click target (appended programmatically instead,
+  // e.g. a trailing dot run after a Siopi rest — see silenceModifiers.ts) are
+  // invisible to the toolbar/action-map scan above. Inject them manually so
+  // they survive regen instead of being dropped, and track them here so the
+  // toolbar-membership count below still reconciles against symbols.length.
+  const manualInjectionIcons: string[] = [];
+
+  const siopiBeatExtenderChar = silenceModifiers.SIOPI_BEAT_EXTENDER as string;
+  symbols.push({
+    icon: "SiopiBeatExtender",
+    label: "SiopiBeatExtender",
+    group: "rest",
+    role: "rest",
+    variants: variantsFromInsert(siopiBeatExtenderChar),
+    insert: siopiBeatExtenderChar,
+    isBase: false,
+    isModifier: false,
+    isKeySignature: false,
+    keyId: null,
+    keySignatureRole: null,
+    category: null,
+    basePitch: null,
+    length: null,
+    heavyTop: false,
+    klasmaPlacement: null,
+    legacyChars: {},
+    reactChars: { insert: siopiBeatExtenderChar },
+  });
+  manualInjectionIcons.push("SiopiBeatExtender");
+
   const representedActionIcons = new Set([
     ...toolbarMembership.keys(),
     ...keySignatureIcons,
@@ -267,6 +298,7 @@ const main = async () => {
         issonToolbar: toolbars.issonToolbar.length,
       },
       keySignatureCount: rawKeySignatures.length,
+      manualInjectionIcons,
       actionCharMapCount: actionMap.ACTION_CHAR_MAP.length,
       actionIcons,
       reactSequenceCount: Object.keys(actionMap.REACT_SEQUENCE_TO_ACTION).length,

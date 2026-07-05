@@ -29,6 +29,7 @@ class SymbolMapMeta(BaseModel):
     praxis_root: str = Field(alias="praxisRoot")
     toolbar_counts: dict[str, int] = Field(alias="toolbarCounts")
     key_signature_count: int = Field(alias="keySignatureCount")
+    manual_injection_icons: list[str] = Field(alias="manualInjectionIcons")
     action_char_map_count: int = Field(alias="actionCharMapCount")
     action_icons: list[str] = Field(alias="actionIcons")
     react_sequence_count: int = Field(alias="reactSequenceCount")

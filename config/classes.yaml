@@ -171,6 +171,7 @@ names:
 - key_signature.ZoKeyChromDouxSup
 - key_signature.ZoKeyChromDure(Sup)
 - key_signature.ZoKeyDiatOctave
+- rest.SiopiBeatExtender
 - unsupported.TempoChange
 groups:
   key_signature:
@@ -315,6 +316,7 @@ groups:
   - base_neume.Stavros
   rest:
   - rest.Siopi1
+  - rest.SiopiBeatExtender
   gorgon:
   - modifier_gorgon.Klasma
   - modifier_gorgon.Gorgon
@@ -359,6 +361,8 @@ source_meta:
     gorgonToolbar: 22
     issonToolbar: 8
   keySignatureCount: 72
+  manualInjectionIcons:
+  - SiopiBeatExtender
   actionCharMapCount: 117
   actionIcons:
   - Antikenoma

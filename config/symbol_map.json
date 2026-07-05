@@ -10,6 +10,9 @@
       "issonToolbar": 8
     },
     "keySignatureCount": 72,
+    "manualInjectionIcons": [
+      "SiopiBeatExtender"
+    ],
     "actionCharMapCount": 117,
     "actionIcons": [
       "Antikenoma",
@@ -4499,7 +4502,7 @@
       "keyId": 69,
       "keySignatureRole": "midOnly",
       "category": "Enharmonic",
-      "basePitch": 72,
+      "basePitch": 60,
       "length": null,
       "heavyTop": false,
       "klasmaPlacement": null,
@@ -5351,6 +5354,34 @@
       "klasmaPlacement": null,
       "legacyChars": {},
       "reactChars": {}
+    },
+    {
+      "icon": "SiopiBeatExtender",
+      "label": "SiopiBeatExtender",
+      "group": "rest",
+      "role": "rest",
+      "variants": {
+        "insert": "",
+        "short": null,
+        "long": null,
+        "extraShort": null,
+        "under": null
+      },
+      "insert": "",
+      "isBase": false,
+      "isModifier": false,
+      "isKeySignature": false,
+      "keyId": null,
+      "keySignatureRole": null,
+      "category": null,
+      "basePitch": null,
+      "length": null,
+      "heavyTop": false,
+      "klasmaPlacement": null,
+      "legacyChars": {},
+      "reactChars": {
+        "insert": ""
+      }
     }
   ]
 }
