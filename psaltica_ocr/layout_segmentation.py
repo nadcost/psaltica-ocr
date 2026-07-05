@@ -236,17 +236,31 @@ def _expanded_chant_bands(
     source_boxes: set[tuple[int, int, int, int]] = {band.box_key for band in seeds}
     expanded: list[_BandStats] = []
     max_modifier_gap = max(28, int(height * 0.025))
+    max_key_line_gap = max(70, int(height * 0.06))
 
     for seed in seeds:
         group = [seed]
         for candidate in bands:
-            if candidate.is_chant or candidate.is_text_like:
+            if candidate.is_chant:
+                continue
+            close_above = candidate.bbox.y_center <= seed.bbox.y_center
+            if not close_above:
                 continue
             above_gap = seed.bbox.y1 - candidate.bbox.y2
-            close_above = candidate.bbox.y_center <= seed.bbox.y_center and above_gap <= max_modifier_gap
-            if close_above and _is_modifier_like(candidate, height=height):
-                group.append(candidate)
-                source_boxes.add(candidate.box_key)
+            if candidate.is_text_like:
+                # A real lyric/title line has too many components to pass
+                # _is_key_line_like below, so this only screens out genuine
+                # text; a lone segment-start key glyph still gets a look.
+                if not (above_gap <= max_key_line_gap and _is_key_line_like(candidate, height=height)):
+                    continue
+            elif above_gap <= max_modifier_gap and _is_modifier_like(candidate, height=height):
+                pass
+            elif above_gap <= max_key_line_gap and _is_key_line_like(candidate, height=height):
+                pass
+            else:
+                continue
+            group.append(candidate)
+            source_boxes.add(candidate.box_key)
         expanded.append(_pad_chant_band(_merge_band_group(group), height=height))
 
     return _merge_overlapping_chant_bands(expanded), source_boxes
@@ -257,6 +271,14 @@ def _is_modifier_like(band: _BandStats, *, height: int) -> bool:
     return (
         band.component_count <= 4 or (band.component_count <= 6 and band.long_component_count >= 1)
     ) and band.bbox.height <= max_modifier_height
+
+
+def _is_key_line_like(band: _BandStats, *, height: int) -> bool:
+    # A segment-start key glyph sits alone on an otherwise-blank line: unlike
+    # a modifier accent (tight to the neume it decorates), it can be a full
+    # line-height away, but it's a lone glyph, not a run of letters.
+    max_key_height = max(60, int(height * 0.08))
+    return band.component_count <= 2 and band.bbox.height <= max_key_height
 
 
 def _pad_chant_band(band: _BandStats, *, height: int) -> _BandStats:

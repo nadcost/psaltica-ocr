@@ -21,6 +21,11 @@ def _chant_row(image: np.ndarray, y: int, *, x0: int = 20, strokes: int = 6) -> 
         image[y : y + 5, x : x + 26] = 0
 
 
+def _key_line(image: np.ndarray, y: int, *, x0: int = 300, size: int = 24) -> None:
+    """A lone segment-start key glyph on an otherwise-blank line."""
+    image[y : y + size, x0 : x0 + size] = 0
+
+
 def _kashida_text_row(image: np.ndarray, y: int, *, glyphs: int = 12) -> None:
     """An Arabic-like lyric row: many glyphs plus a couple of kashida strokes."""
     _text_row(image, y, glyphs=glyphs)
@@ -117,6 +122,18 @@ def test_kashida_text_below_chant_pairs_as_lyrics() -> None:
     assert len(layout.chant_rows) == 1
     assert len(layout.chant_rows[0].lyric_rows) == 1
     assert layout.chant_rows[0].lyric_rows[0].bbox.y1 == 175
+
+
+def test_leading_key_line_is_absorbed_into_chant_row_below() -> None:
+    image = _blank(height=300)
+    _key_line(image, 70)
+    _chant_row(image, 130)
+
+    layout = segment_page_layout(image)
+
+    assert len(layout.chant_rows) == 1
+    assert layout.chant_rows[0].bbox.y1 <= 70
+    assert layout.non_score_regions == ()
 
 
 def test_chant_row_requires_enough_ligature_strokes() -> None:
