@@ -141,6 +141,11 @@ def _load_pages(pages_file: Path) -> list[str]:
 # (matches the "starved" cutoff tools/count_annotation_classes.py reports on).
 STARVED_TARGET = 30
 
+# A page only sinks to the "done" bucket once labelled boxes cover more than
+# this share of its estimated symbol count — a saved-but-partial page (you
+# stopped partway through) should stay in the working queue, not disappear.
+DONE_THRESHOLD = 0.90
+
 
 def _prediction_key(image_path: str, preds: dict) -> str | None:
     return image_path if image_path in preds else next(
@@ -157,30 +162,42 @@ def _predicted_classes(image_path: str, preds: dict) -> set[str]:
     }
 
 
+def _saved_completion(image_path: str) -> float:
+    """Share of a page's estimated symbol count that's already labelled.
+
+    0.0 if there's no saved correction yet. Reuses the same estimate the
+    in-page progress bar shows (_symbol_estimate), so the two never disagree.
+    """
+    label_path = DEFAULT_CORRECTIONS / rio.page_key(image_path) / "detections.yolo"
+    if not label_path.exists():
+        return 0.0
+    assigned = sum(1 for line in label_path.read_text(encoding="utf-8").splitlines() if line.strip())
+    expected = max(_symbol_estimate(image_path), assigned, 1)
+    return min(assigned / expected, 1.0)
+
+
 def _rank_pages(pages: list[str], preds: dict, class_names: list[str]) -> list[tuple[str, int, bool]]:
     """Order pages by how much they'd still move the class-coverage needle.
 
     Score = sum over the page's autolabel-predicted classes of the instances
     still needed to reach STARVED_TARGET (0 once a class is saturated) — a
     proxy for "new ground truth this page is likely to add", since the real
-    count is only known after review. Already-annotated pages sink to the
-    bottom (nothing left to gain) but stay in the list for re-review.
-    Returns (image_path, score, already_saved) tuples in display order.
+    count is only known after review. Pages past DONE_THRESHOLD completion
+    sink to the bottom (nothing left to gain); a page you only partly
+    corrected stays in the working queue instead of vanishing.
+    Returns (image_path, score, done) tuples in display order.
     """
     counts, _, _ = rio.count_class_instances(DEFAULT_CORRECTIONS, class_names)
-    saved_keys = {
-        p.name for p in DEFAULT_CORRECTIONS.glob("*") if (p / "detections.yolo").exists()
-    }
 
     scored = []
     for image_path in pages:
-        already_saved = rio.page_key(image_path) in saved_keys
+        done = _saved_completion(image_path) > DONE_THRESHOLD
         needed = sum(max(0, STARVED_TARGET - counts.get(cls, 0)) for cls in _predicted_classes(image_path, preds))
-        scored.append((image_path, needed, already_saved))
+        scored.append((image_path, needed, done))
 
-    unsaved = sorted((row for row in scored if not row[2]), key=lambda row: -row[1])
-    saved = sorted((row for row in scored if row[2]), key=lambda row: row[0])
-    return unsaved + saved
+    unfinished = sorted((row for row in scored if not row[2]), key=lambda row: -row[1])
+    done_rows = sorted((row for row in scored if row[2]), key=lambda row: row[0])
+    return unfinished + done_rows
 
 
 def _prediction_boxes(image_path: str, width: int, height: int, preds: dict) -> list[rio.Box]:
@@ -274,11 +291,16 @@ def main() -> None:
     ranked = _rank_pages(pages, preds, classes)
     rank_by_path = {image_path: i + 1 for i, (image_path, _, _) in enumerate(ranked)}
     score_by_path = {image_path: score for image_path, score, _ in ranked}
-    saved_by_path = {image_path: is_saved for image_path, _, is_saved in ranked}
+    done_by_path = {image_path: is_done for image_path, _, is_done in ranked}
+
     ordered_pages = [image_path for image_path, _, _ in ranked]
 
     def _page_label(image_path: str) -> str:
-        tag = "done" if saved_by_path[image_path] else f"need {score_by_path[image_path]}"
+        if done_by_path[image_path]:
+            tag = "done"
+        else:
+            pct = _saved_completion(image_path)
+            tag = f"{pct:.0%} · need {score_by_path[image_path]}" if pct > 0 else f"need {score_by_path[image_path]}"
         return f"#{rank_by_path[image_path]} · {tag} · {rio.page_key(image_path)}"
 
     with st.sidebar:
