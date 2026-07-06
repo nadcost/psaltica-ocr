@@ -137,6 +137,52 @@ def _load_pages(pages_file: Path) -> list[str]:
     return [line.strip() for line in pages_file.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+# A class stops needing more examples past this many ground-truth instances
+# (matches the "starved" cutoff tools/count_annotation_classes.py reports on).
+STARVED_TARGET = 30
+
+
+def _prediction_key(image_path: str, preds: dict) -> str | None:
+    return image_path if image_path in preds else next(
+        (k for k in preds if k.endswith(Path(image_path).name)), None
+    )
+
+
+def _predicted_classes(image_path: str, preds: dict) -> set[str]:
+    key = _prediction_key(image_path, preds)
+    return {
+        result["value"]["rectanglelabels"][0]
+        for result in preds.get(key, [])
+        if result.get("value", {}).get("rectanglelabels")
+    }
+
+
+def _rank_pages(pages: list[str], preds: dict, class_names: list[str]) -> list[tuple[str, int, bool]]:
+    """Order pages by how much they'd still move the class-coverage needle.
+
+    Score = sum over the page's autolabel-predicted classes of the instances
+    still needed to reach STARVED_TARGET (0 once a class is saturated) — a
+    proxy for "new ground truth this page is likely to add", since the real
+    count is only known after review. Already-annotated pages sink to the
+    bottom (nothing left to gain) but stay in the list for re-review.
+    Returns (image_path, score, already_saved) tuples in display order.
+    """
+    counts, _, _ = rio.count_class_instances(DEFAULT_CORRECTIONS, class_names)
+    saved_keys = {
+        p.name for p in DEFAULT_CORRECTIONS.glob("*") if (p / "detections.yolo").exists()
+    }
+
+    scored = []
+    for image_path in pages:
+        already_saved = rio.page_key(image_path) in saved_keys
+        needed = sum(max(0, STARVED_TARGET - counts.get(cls, 0)) for cls in _predicted_classes(image_path, preds))
+        scored.append((image_path, needed, already_saved))
+
+    unsaved = sorted((row for row in scored if not row[2]), key=lambda row: -row[1])
+    saved = sorted((row for row in scored if row[2]), key=lambda row: row[0])
+    return unsaved + saved
+
+
 def _prediction_boxes(image_path: str, width: int, height: int, preds: dict) -> list[rio.Box]:
     key = image_path if image_path in preds else next((k for k in preds if k.endswith(Path(image_path).name)), None)
     return rio.boxes_from_ls_results(preds.get(key, []), width, height) if key else []
@@ -225,9 +271,19 @@ def main() -> None:
         st.error(f"No pages listed in {DEFAULT_PAGES_FILE}")
         st.stop()
 
+    ranked = _rank_pages(pages, preds, classes)
+    rank_by_path = {image_path: i + 1 for i, (image_path, _, _) in enumerate(ranked)}
+    score_by_path = {image_path: score for image_path, score, _ in ranked}
+    saved_by_path = {image_path: is_saved for image_path, _, is_saved in ranked}
+    ordered_pages = [image_path for image_path, _, _ in ranked]
+
+    def _page_label(image_path: str) -> str:
+        tag = "done" if saved_by_path[image_path] else f"need {score_by_path[image_path]}"
+        return f"#{rank_by_path[image_path]} · {tag} · {rio.page_key(image_path)}"
+
     with st.sidebar:
         st.header("Page")
-        image_path = st.selectbox("Page", pages, format_func=rio.page_key)
+        image_path = st.selectbox("Page", ordered_pages, format_func=_page_label)
         zoom = st.slider("🔍 Zoom", 0.25, 3.0, 1.0, 0.25,
                          help="Zooms the image itself. The view scrolls — drag inside it to draw.")
         viewport_h = st.slider("Viewport height (px)", 400, 1200, 750, 50,
