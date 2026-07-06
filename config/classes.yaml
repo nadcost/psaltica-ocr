@@ -173,6 +173,7 @@ names:
 - key_signature.ZoKeyDiatOctave
 - rest.SiopiBeatExtender
 - unsupported.TempoChange
+- unsupported.ApostrofosElafron
 groups:
   key_signature:
   - key_signature.PaKey
@@ -351,6 +352,7 @@ groups:
   - modifier_isson.Melo
   unsupported:
   - unsupported.TempoChange
+  - unsupported.ApostrofosElafron
 source_meta:
   generatedBy: tools/_extract_symbol_map.ts
   praxisRoot: /Users/nadcost/psaltica-praxis

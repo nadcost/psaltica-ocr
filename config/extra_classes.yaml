@@ -19,3 +19,7 @@
 # over — no re-annotation needed.
 classes:
   - unsupported.TempoChange
+  # A ligature of base_neume.Apostrofos + base_neume.Elafron touching; reads
+  # as two Apostrofos. LTR-only (doesn't occur in Arabic compositions), so
+  # not yet built in the app.
+  - unsupported.ApostrofosElafron
