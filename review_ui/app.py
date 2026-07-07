@@ -153,13 +153,30 @@ def _prediction_key(image_path: str, preds: dict) -> str | None:
     )
 
 
-def _predicted_classes(image_path: str, preds: dict) -> set[str]:
+def _predicted_class_counts(image_path: str, preds: dict) -> dict[str, int]:
     key = _prediction_key(image_path, preds)
-    return {
-        result["value"]["rectanglelabels"][0]
-        for result in preds.get(key, [])
-        if result.get("value", {}).get("rectanglelabels")
-    }
+    counts: dict[str, int] = {}
+    for result in preds.get(key, []):
+        labels = result.get("value", {}).get("rectanglelabels")
+        if labels:
+            counts[labels[0]] = counts.get(labels[0], 0) + 1
+    return counts
+
+
+def _predicted_classes(image_path: str, preds: dict) -> set[str]:
+    """Classes the autolabeler predicted for this page, minus impossible ones.
+
+    Template matching over-detects (some simple/small glyph shapes match
+    hundreds of times on a page that has ~170 symbols total — seen for real
+    with SiopiBeatExtender and Iporoi). A class predicted more times than the
+    page's own estimated symbol count can't be real, so it's dropped rather
+    than inflating the need score with a phantom starved class.
+    """
+    counts = _predicted_class_counts(image_path, preds)
+    if not counts:
+        return set()
+    limit = _symbol_estimate(image_path)
+    return {cls for cls, n in counts.items() if n <= limit}
 
 
 def _saved_completion(image_path: str) -> float:
@@ -174,6 +191,13 @@ def _saved_completion(image_path: str) -> float:
     assigned = sum(1 for line in label_path.read_text(encoding="utf-8").splitlines() if line.strip())
     expected = max(_symbol_estimate(image_path), assigned, 1)
     return min(assigned / expected, 1.0)
+
+
+def _starved_classes(class_names: list[str]) -> list[tuple[str, int]]:
+    """(class, count) for every class below STARVED_TARGET, neediest first."""
+    counts, _, _ = rio.count_class_instances(DEFAULT_CORRECTIONS, class_names)
+    starved = [(name, counts.get(name, 0)) for name in class_names if counts.get(name, 0) < STARVED_TARGET]
+    return sorted(starved, key=lambda row: row[1])
 
 
 def _rank_pages(pages: list[str], preds: dict, class_names: list[str]) -> list[tuple[str, int, bool]]:
@@ -314,6 +338,16 @@ def main() -> None:
         per_view = st.slider("Boxes per panel page", 10, 60, 20, 5)
         saved = sorted(p.name for p in DEFAULT_CORRECTIONS.glob("*") if (p / "detections.yolo").exists())
         st.caption(f"Saved: {len(saved)} pages")
+
+        starved = _starved_classes(classes)
+        with st.expander(f"🔍 Starved classes ({len(starved)})", expanded=False):
+            st.caption("Fewest instances first — what to look for while scanning pages.")
+            for cls, count in starved:
+                glyph_col, label_col = st.columns([1, 4])
+                uri = _glyph_uri(cls, str(DEFAULT_SYMBOL_MAP))
+                if uri:
+                    glyph_col.image(uri, width=32)
+                label_col.caption(f"{count} · {cls}")
 
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if image is None:
